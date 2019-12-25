@@ -1,0 +1,15 @@
+[package]
+name = "centaurus_nif"
+version = "0.1.0"
+authors = ["mischief901 <alexmisch901@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "centaurus_nif"
+path = "src/lib.rs"
+crate-type = ["dylib"]
+
+[dependencies]
+rustler = "0.21.0"
+lazy_static = "1.0"
+centaurus_common = { path = "../centaurus_common" }
