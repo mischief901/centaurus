@@ -38,16 +38,5 @@ defmodule Centaurus do
   def load {:port, path} do
     true = File.exists?(path)
     :ok
-  end
-
-  @doc """
-  Starts Centaurus as an application.
-  This is not necessary under most circumstances.
-  """
-  @spec start(opts :: any) :: :not_implemented
-  def start _opts do
-    :not_implemented
-  end
-
-  
+  end  
 end
