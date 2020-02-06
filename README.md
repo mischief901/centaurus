@@ -1,21 +1,10 @@
 # Centaurus
 
-**TODO: Add description**
+This is a work in progress.
+
+Centaurus aims to add QUIC functionality to the BEAM via Nifs interfacing with the Quinn library written in Rust.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `centaurus` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:centaurus, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/centaurus](https://hexdocs.pm/centaurus).
+Install the git package from github. Elixir 1.10 and Erlang OTP 22 are needed as well as Rust >1.39 and Cargo.
 
