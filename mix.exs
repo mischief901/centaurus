@@ -5,12 +5,10 @@ defmodule Centaurus.MixProject do
     [
       app: :centaurus,
       version: "0.1.0",
-      elixir: "~> 1.9",
+      elixir: "~> 1.10",
       compilers: [:rustler] ++ Mix.compilers(),
       rustler_crates: [
-        centaurus_nif: [],
-        centaurus_port: [],
-        centaurus_common: []
+        centaurus: []
       ],
       start_permanent: Mix.env() == :prod,
       deps: deps()
