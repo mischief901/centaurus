@@ -12,23 +12,8 @@ defmodule Centaurus.Types do
     @typedoc """
     The socket type is a sum datatype for the nif, port, and unix socket types.
     """
-    @type socket :: nif_socket | port_socket | unix_socket
+    @opaque socket :: reference
 
-    @typedoc """
-    The nif_socket type corresponds to the nif connection.
-    """
-    @opaque nif_socket :: reference
-
-    @typedoc """
-    The port_socket type corresponds to Erlang's port type.
-    """
-    @opaque port_socket :: port
-
-    @typedoc """
-    The unix_socket type corresponds to Erlang's socket type.
-    """
-    @opaque unix_socket :: :socket.socket
-    
     @typedoc """
     The stream_id type is a monotonically increasing positive integer starting 
     at 0 and incremented by every open stream. Stream 0 is the main stream.
@@ -38,7 +23,7 @@ defmodule Centaurus.Types do
     @typedoc """
     A unique representation to identify each quic connection and stream id.
     """
-    @opaque quic_stream :: {socket, stream_id}
+    @opaque stream :: {socket, stream_id}
 
     @typedoc """
     A representation of the quic listening socket.
@@ -68,6 +53,11 @@ defmodule Centaurus.Types do
     Internal types
     """
     @opaque internal :: any
+
+    @typedoc """
+    Data that is transmittable over the socket.
+    """
+    @type data :: String.Chars.t
     
   end
   
