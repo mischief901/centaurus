@@ -5,6 +5,7 @@ defmodule Centaurus.Core do
   See each function for details.
   """
 
+  alias Nif
   alias Centaurus.Types
   alias Types.Common, as: CommonType
   alias Types.Internal, as: Internal
@@ -17,7 +18,7 @@ defmodule Centaurus.Core do
     listen_socket: QuicSocketType.socket,
     error: CommonType.error
   def listen(port, address, opts) do
-    
+    Nif.listen_nif(port, address, opts)
   end
 
   @spec accept(lsocket, opts) :: {:ok, socket} | {:error, error}
@@ -26,7 +27,7 @@ defmodule Centaurus.Core do
     socket: QuicSocketType.socket,
     error: CommonType.error
   def accept(lsocket, opts) do
-
+    Nif.accept_nif(lsocket, opts)
   end
 
   @spec connect(port, address, opts, timeout) :: {:ok, socket} | {:error, error}
@@ -39,7 +40,7 @@ defmodule Centaurus.Core do
   def connect(port, address, opts, timeout \\ :infinity)
   
   def connect(port, address, opts, timeout) do
-
+    Nif.connect_nif(port, address, opts, timeout)
   end
 
   @spec open_stream(socket, opts) :: {:ok, stream_id} | {:error, error}
@@ -48,13 +49,13 @@ defmodule Centaurus.Core do
     stream_id: QuicSocketType.stream,
     error: CommonType.error
   def open_stream(socket, opts) do
-
+    Nif.open_stream(socket, opts)
   end
 
   @spec close_stream(stream) :: :ok
   when stream: QuicSocketType.stream
   def close_stream(stream) do
-
+    Nif.close_stream(stream)
   end
 
   @spec read(stream, timeout) :: {:ok, data} | {:error, error}
@@ -63,7 +64,7 @@ defmodule Centaurus.Core do
     data: Internal.data,
     error: CommonType.error
   def read(stream, timeout) do
-
+    Nif.read_nif(stream, timeout)
   end
 
   @spec write(stream, data) :: :ok | {:error, error}
@@ -71,17 +72,17 @@ defmodule Centaurus.Core do
     data: Internal.data,
     error: CommonType.error
   def write(stream, data) do
-
+    Nif.write_nif(stream, data)
   end
   
   @spec close(socket) :: :ok | {:error, error}
   when socket: QuicSocketType.socket,
     error: CommonType.error
   def close(socket) do
-
+    Nif.close_nif(socket)
   end
 
-  defmodule Centaurus.Core.Nif do
+  defmodule Nif do
     @moduledoc false
 
     @nif_error :erlang.nif_error(:nif_not_loaded)
