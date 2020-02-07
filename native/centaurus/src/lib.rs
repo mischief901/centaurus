@@ -1,22 +1,43 @@
+use crate::api;
 use rustler::{Encoder, Env, Error, Term};
 
-mod atoms {
-    rustler_atoms! {
-        atom ok;
-    }
+/// accept(socket, timeout)
+fn accept<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
 }
 
-rustler::rustler_export_nifs! {
-    "Elixir.Centaurus",
-    [
-        ("add", 2, add)
-    ],
-    None
+/// connect(ip, port, timeout, options)
+fn connect<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
 }
 
-fn add<'a>(env: Env<'a>, args: &[Term<'a>]) -> Result<Term<'a>, Error> {
-    let num1: i64 = args[0].decode()?;
-    let num2: i64 = args[1].decode()?;
+/// close(socket)
+fn close<'a>(env: Env<'a>, args: Term<'a>) -> Result {
 
-    Ok((atoms::ok(), num1 + num2).encode(env))
 }
+
+/// close_stream(stream_id)
+fn close_stream<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
+}
+
+/// listen(port, options)
+fn listen<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
+}
+
+/// open_stream(socket, options)
+fn open_stream<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
+}
+
+/// read(stream_id, timeout)
+fn read<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
+}
+
+/// write(stream_id, data)
+fn write<'a>(env: Env<'a>, args: Term<'a>) -> Result {
+
+}
+
