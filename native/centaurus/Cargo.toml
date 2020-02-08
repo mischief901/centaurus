@@ -6,9 +6,15 @@ edition = "2018"
 
 [lib]
 name = "centaurus"
-path = "src/lib.rs"
+path = "src/conn.rs"
 crate-type = ["dylib"]
 
 [dependencies]
-rustler = "0.21.0"
+err-derive = "0.2.2"
 lazy_static = "1.0"
+tokio = { version = "0.2", features = ["full"] }
+quinn = "0.5.3"
+quinn-proto = "0.5.2"
+rustler = "0.21.0"
+
+
