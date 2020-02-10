@@ -7,14 +7,18 @@ use std::{
     },
 };
 
+use quinn::{ EndpointBuilder, Connecting };
+
 pub trait Net {
-    // The type of quinn::ConfigBuilder to use.
-    type Service;
-    
     fn address(&self) -> &SocketAddr;
 
-    fn configure(&self) -> Self::Service;
+    fn configure_client(&self) -> EndpointBuilder;
 
+    fn configure_server(&self) -> EndpointBuilder;
+
+    fn notify(&self, connection: Connecting) -> ();
+    
     fn server_name(&self) -> &str;
 }
+
 

@@ -7,6 +7,7 @@ use err_derive::Error;
 use quinn::{
     ConnectError,
     ConnectionError,
+    EndpointError,
 };
 
 #[derive(Debug, Error)]
@@ -28,6 +29,12 @@ impl From<ConnectError> for Error {
 
 impl From<ConnectionError> for Error {
     fn from(_ : ConnectionError) -> Self {
+        Self::Error
+    }
+}
+
+impl From<EndpointError> for Error {
+    fn from(_ : EndpointError) -> Self {
         Self::Error
     }
 }

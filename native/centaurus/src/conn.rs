@@ -11,50 +11,61 @@ mod options;
 use error::Error;
 use net::Net;
 use options::QuicOptions;
-use quinn::{ Endpoint, Incoming, NewConnection };
+use quinn::{ Connecting, EndpointDriver, Endpoint, Incoming, NewConnection };
+
+use futures::stream::StreamExt;
 
 
 type Result<T> = std::result::Result<T, Error>;
 
 enum ConnectionState {
-    Configured(Endpoint, Incoming),
-    Connected(NewConnection),
+    Configured(EndpointDriver, Endpoint, Incoming),
+    Connected(EndpointDriver, NewConnection),
     Error,
 }
 
 impl ConnectionState {
-    fn configured((endpoint, incoming) : (Endpoint, Incoming)) -> Self {
-        Self::Configured(endpoint, incoming)
-    }
-
     // On error, this should drop the connection since all the outstanding
     // references are dropped.
     fn connected(&mut self, connection : NewConnection) {
         *self = match std::mem::replace(self, Self::Error) {
-            Self::Configured(_, _) => Self::Connected(connection),
+            Self::Configured(driver, _, _) => Self::Connected(driver, connection),
             _otherwise => Self::Error,
         }
     }
     
     fn endpoint(&self) -> Option<&Endpoint> {
         match self {
-            Self::Configured(ref endpoint, _incoming) => Some(endpoint),
+            Self::Configured(_driver, ref endpoint, _incoming) => Some(endpoint),
             _ => None,
         }
     }
 
     fn incoming(&self) -> Option<&Incoming> {
         match self {
-            Self::Configured(_endpoint, ref incoming) => Some(incoming),
+            Self::Configured(_driver, _endpoint, ref incoming) => Some(incoming),
             _ => None,
         }
     }
 
-    fn conn(&self) -> Option<& NewConnection> {
+    fn conn(&self) -> Option<&NewConnection> {
         match self {
-            Self::Connected(ref conn) => Some(conn),
+            Self::Connected(_driver, ref conn) => Some(conn),
             _ => None,
         }
+    }
+
+    fn accept(&mut self) -> Option<Incoming> {
+        match self {
+            Self::Configured(_driver, _endpoint, incoming) => Some(&mut incoming.next()),
+            _ => None,
+        }
+    }
+}
+
+impl From<(EndpointDriver, Endpoint, Incoming)> for ConnectionState {
+    fn from((driver, endpoint, incoming) : (EndpointDriver, Endpoint, Incoming)) -> Self {
+        Self::Configured(driver, endpoint, incoming)
     }
 }
 
@@ -66,12 +77,24 @@ pub struct Connection <T : Net> {
 }
 
 impl <T : Net> Connection <T> {
-    fn new(meta: T) -> Result<Self> {
+    fn new_client(meta: T) -> Result<Self> {
         let sock_addr = meta.address();
-        let conf = meta.configure();
-        let conn = conf
+        let conn : ConnectionState = meta
+            .configure_client()
             .bind(sock_addr)?
-            .configured();
+            .into();
+        Ok(Connection {
+            meta: meta,
+            conn: conn,
+        })
+    }
+
+    fn new_server(meta: T) -> Result<Self> {
+        let sock_addr = meta.address();
+        let conn : ConnectionState = meta
+            .configure_server()
+            .bind(sock_addr)?
+            .into();
         Ok(Connection {
             meta: meta,
             conn: conn,
@@ -88,10 +111,14 @@ impl <T : Net> Connection <T> {
         self.conn.connected(new_conn);
         Ok(())
     }
-
-    fn accept(&mut self) -> Result<()> {
+    
+    async fn listen(&mut self) -> Result<()> {
+        while let Some(new_conn) = self.conn.accept()?.await {
+            self.meta.notify(new_conn);
+        }
         Ok(())
     }
+
 
     // potentially combine these and make it an option.
     fn open_bi_stream(&mut self, opts: Option<QuicOptions>) -> Result<()> {
@@ -110,5 +137,6 @@ impl <T : Net> Connection <T> {
         Ok(())
     }   
 }
+
 
 
