@@ -5,9 +5,12 @@ use std::{
     net::{
         SocketAddr,
     },
+    task::{
+        Context,
+    },
 };
 
-use quinn::{ EndpointBuilder, Connecting };
+use quinn::{ EndpointBuilder, NewConnection };
 
 pub trait Net {
     fn address(&self) -> &SocketAddr;
@@ -16,7 +19,7 @@ pub trait Net {
 
     fn configure_server(&self) -> EndpointBuilder;
 
-    fn notify(&self, connection: Connecting) -> ();
+    fn notify(&self, connection : NewConnection, ctx : &mut Context) -> ();
     
     fn server_name(&self) -> &str;
 }

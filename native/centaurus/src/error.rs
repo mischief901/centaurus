@@ -1,20 +1,17 @@
-
-#![feature(try_trait)]
-
 /// This combines the various errors of quinn into a single Error enum.
 
-use err_derive::Error;
 use quinn::{
     ConnectError,
     ConnectionError,
     EndpointError,
 };
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
     Error
 }
 
+#[cfg(try_trait)]
 impl From<std::option::NoneError> for Error {
     fn from(_ : std::option::NoneError) -> Self {
         Self::Error

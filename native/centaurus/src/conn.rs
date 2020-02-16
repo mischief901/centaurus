@@ -12,9 +12,13 @@ use error::Error;
 use net::Net;
 use options::QuicOptions;
 use quinn::{ Connecting, EndpointDriver, Endpoint, Incoming, NewConnection };
+use futures::StreamExt;
 
-use futures::stream::StreamExt;
-
+use std::{
+    pin::Pin,
+    sync::{ Arc, Mutex },
+    task::{ Context, Poll, Waker },
+};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -29,7 +33,7 @@ impl ConnectionState {
     // references are dropped.
     fn connected(&mut self, connection : NewConnection) {
         *self = match std::mem::replace(self, Self::Error) {
-            Self::Configured(driver, _, _) => Self::Connected(driver, connection),
+            Self::Configured(driver, _endpoint, _incoming) => Self::Connected(driver, connection),
             _otherwise => Self::Error,
         }
     }
@@ -55,9 +59,9 @@ impl ConnectionState {
         }
     }
 
-    fn accept(&mut self) -> Option<Incoming> {
+    async fn accept(&mut self) -> Option<Connecting> {
         match self {
-            Self::Configured(_driver, _endpoint, incoming) => Some(&mut incoming.next()),
+            Self::Configured(_driver, _endpoint, incoming) => incoming.next().await,
             _ => None,
         }
     }
@@ -101,27 +105,29 @@ impl <T : Net> Connection <T> {
         })
     }
     
+    #[cfg(try_trait)]
     async fn connect(&mut self, opts: Option<QuicOptions>) -> Result<()> {
         let server = self.meta.server_name();
         let sock_addr = self.meta.address();
-        let mut new_conn = self.conn
+        let new_conn = self.conn
             .endpoint()?
             .connect(sock_addr, server)?
             .await?;
         self.conn.connected(new_conn);
         Ok(())
     }
-    
-    async fn listen(&mut self) -> Result<()> {
-        while let Some(new_conn) = self.conn.accept()?.await {
+
+    #[cfg(try_trait)]
+    async fn accept(&mut self) -> Result<()> {
+        while let new_conn = self.conn.accept()?.await? {
             self.meta.notify(new_conn);
         }
         Ok(())
     }
 
-
     // potentially combine these and make it an option.
     fn open_bi_stream(&mut self, opts: Option<QuicOptions>) -> Result<()> {
+        
         Ok(())
     }
 

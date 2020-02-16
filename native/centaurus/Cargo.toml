@@ -16,5 +16,5 @@ tokio = { version = "0.2", features = ["full"] }
 quinn = "0.5.3"
 quinn-proto = "0.5.2"
 rustler = "0.21.0"
-
+futures = "0.3.1"
 
