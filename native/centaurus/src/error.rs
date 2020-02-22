@@ -4,11 +4,15 @@ use quinn::{
     ConnectError,
     ConnectionError,
     EndpointError,
+    VarInt,
 };
+
+use quinn_proto::Code as ErrorCode;
 
 #[derive(Debug)]
 pub enum Error {
-    Error
+    Error,
+    None,
 }
 
 #[cfg(try_trait)]
@@ -33,5 +37,19 @@ impl From<ConnectionError> for Error {
 impl From<EndpointError> for Error {
     fn from(_ : EndpointError) -> Self {
         Self::Error
+    }
+}
+
+pub enum ApplicationError {
+    Quic(QuicError),
+    None
+}
+
+impl Into<VarInt> for ApplicationError {
+    fn into(self) -> VarInt {
+        match self {
+            Self::Quic(error_code) => error_code,
+            Self::None => 
+        }
     }
 }

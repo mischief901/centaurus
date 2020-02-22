@@ -8,33 +8,38 @@
 mod error;
 mod net;
 mod options;
-use error::Error;
+use error::{
+    Error,
+    ApplicationError,
+};
 use net::Net;
 use options::QuicOptions;
-use quinn::{ Connecting, EndpointDriver, Endpoint, Incoming, NewConnection };
-use futures::StreamExt;
-
-use std::{
-    pin::Pin,
-    sync::{ Arc, Mutex },
-    task::{ Context, Poll, Waker },
+use quinn::{
+    Connecting,
+    EndpointDriver,
+    Endpoint,
+    Incoming,
+    NewConnection,
 };
+
+use futures::StreamExt;
 
 type Result<T> = std::result::Result<T, Error>;
 
 enum ConnectionState {
     Configured(EndpointDriver, Endpoint, Incoming),
     Connected(EndpointDriver, NewConnection),
-    Error,
+    Error(Error),
 }
+
 
 impl ConnectionState {
     // On error, this should drop the connection since all the outstanding
     // references are dropped.
     fn connected(&mut self, connection : NewConnection) {
-        *self = match std::mem::replace(self, Self::Error) {
-            Self::Configured(driver, _endpoint, _incoming) => Self::Connected(driver, connection),
-            _otherwise => Self::Error,
+        *self = match std::mem::replace(self, Self::Error(Error::Error)) {
+            Self::Configured(driver, _endpoint, _incoming) => Self::Connected(driver, connection.into()),
+            _otherwise => Self::Error(Error::Error),
         }
     }
     
@@ -63,6 +68,13 @@ impl ConnectionState {
         match self {
             Self::Configured(_driver, _endpoint, incoming) => incoming.next().await,
             _ => None,
+        }
+    }
+
+    fn close(&self, error_code : ApplicationError, message : &[u8]) {
+        if let Self::Connected(_driver, conn) = &self {
+            let NewConnection { connection: connection, .. } = conn;
+            connection.close(error_code.into(), message);
         }
     }
 }
@@ -117,6 +129,7 @@ impl <T : Net> Connection <T> {
         Ok(())
     }
 
+    // meta.notify moves the new_conn to a new Connection.
     #[cfg(try_trait)]
     async fn accept(&mut self) -> Result<()> {
         while let new_conn = self.conn.accept()?.await? {
@@ -125,21 +138,9 @@ impl <T : Net> Connection <T> {
         Ok(())
     }
 
-    // potentially combine these and make it an option.
-    fn open_bi_stream(&mut self, opts: Option<QuicOptions>) -> Result<()> {
-        
-        Ok(())
-    }
-
-    fn open_uni_stream(&mut self, opts: Option<QuicOptions>) -> Result<()> {
-        Ok(())
-    }
-
-    fn close_stream(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn close(&mut self) -> Result<()> {
+    fn close(&self) -> Result<()> {
+        self.conn
+            .close(ApplicationError::None, b"Closed");
         Ok(())
     }   
 }
