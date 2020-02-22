@@ -9,7 +9,7 @@ defmodule Centaurus.Types do
     The struct for Quic sockets.
 
     The struct has the following components:
-    socket: A unique reference to identify the Quic socket
+    socket: A pid to identify the Quic socket owner
     ip_addr: The IP Address of the connection
     port: The port of the connection
     server_name: The server name for the certificates
@@ -24,14 +24,15 @@ defmodule Centaurus.Types do
       The struct for streams.
 
       The struct has the following components:
-      stream_id: A unique reference to identify the stream
+
+      stream_id: A pid to identify the stream owner
       socket_id: Ties the stream to the Quic socket
       direction: Either Bi-directional or Uni-directional access
       options: The stream's options (see options for details)
       data: Data to read from the stream.
       """
 
-      @enforce_keys [:stream_id, :direction, :owner]
+      @enforce_keys [:socket_id, :direction]
       defstruct [
         stream_id: nil,
         socket_id: nil,
@@ -49,10 +50,10 @@ defmodule Centaurus.Types do
       }
 
       @typedoc """
-      The stream_id is a reference to a specific stream for the Rust component
-      to identify. It does not have any useful application on the Elixir side.
+      The stream_id is the pid for the owning process. The Rust component
+      uses this to identify where to send information.
       """
-      @opaque stream_id :: reference
+      @opaque stream_id :: nil | pid
       
     end
 
