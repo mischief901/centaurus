@@ -1,22 +1,27 @@
 use rustler::Term;
+mod interface;
 
 rustler_atoms! {
     atom ok;
     atom error;
+    atom none;
+    atom bi;
+    atom uni;
 }
 
 rustler::rustler_export_nifs! {
     "Elixir.Centaurus",
     [
-        ("accept_nif", 2, accept),
-        ("connect_nif", 4, connect),
-        ("close_nif", 1, close),
-        ("close_stream_nif", 1, close_stream),
-        ("listen_nif", 2, listen),
-        ("open_stream_nif", 2, open_stream),
-        ("read_nif", 2, read),
-        ("write_nif", 2, write),
+        ("accept_nif", 2, interface::accept),
+        ("connect_nif", 2, interface::connect),
+        ("close_nif", 1, interface::close),
+        ("close_stream_nif", 1, interface::close_stream),
+        ("listen_nif", 1, interface::listen),
+        ("open_stream_nif", 2, interface::open_stream),
+        ("read_nif", 2, interface::read),
+        ("write_nif", 2, interface::write),
     ],
     None
 }
+
 

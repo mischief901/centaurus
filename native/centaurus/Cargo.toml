@@ -11,4 +11,8 @@ crate-type = ["dylib"]
 
 [dependencies]
 rustler = "0.21.0"
+serde = { version = "1.0.104", features = ["derive"] }
+serde_rustler = "0.0.3"
 lazy_static = "1.0"
+
+
