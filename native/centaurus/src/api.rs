@@ -1,5 +1,5 @@
 use rustler::Term;
-mod interface;
+use interface;
 
 rustler_atoms! {
     atom ok;
