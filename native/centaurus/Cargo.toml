@@ -14,5 +14,9 @@ rustler = { git="https://github.com/rusterlium/rustler.git" }
 serde = { version = "1.0.104", features = ["derive"] }
 serde_rustler = { git="https://github.com/mischief901/serde_rustler.git" }
 lazy_static = "1.0"
-
+err-derive = "0.2.2"
+tokio = { version = "0.2", features = ["full"] }
+quinn = "0.5.3"
+quinn-proto = "0.5.2"
+futures = "0.3.1"
 
