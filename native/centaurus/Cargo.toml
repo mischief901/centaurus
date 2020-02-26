@@ -6,9 +6,13 @@ edition = "2018"
 
 [lib]
 name = "centaurus"
-path = "src/lib.rs"
+path = "src/interface.rs"
 crate-type = ["dylib"]
 
 [dependencies]
-rustler = "0.21.0"
+rustler = { git="https://github.com/rusterlium/rustler.git" }
+serde = { version = "1.0.104", features = ["derive"] }
+serde_rustler = { git="https://github.com/mischief901/serde_rustler.git" }
 lazy_static = "1.0"
+
+
