@@ -85,14 +85,12 @@ fn accept(quic_socket: ElixirInterface, _timeout: u64) -> ElixirInterface {
 /// connect(quic_socket, timeout)
 #[rustler::nif]
 fn connect(quic_socket: ElixirInterface, _timeout: u64) -> ElixirInterface {
-
     quic_socket
 }
 
 /// close(quic_socket, error_code)
 #[rustler::nif]
 fn close(quic_socket: ElixirInterface, _error_code: ApplicationError) -> ElixirInterface {
-
     quic_socket
 }
 
@@ -105,28 +103,24 @@ fn close_stream(quic_stream: ElixirStream, _error_code: ApplicationError) -> Eli
 /// listen(quic_socket)
 #[rustler::nif]
 fn listen(quic_stream: ElixirInterface) -> ElixirInterface {
-
     quic_stream
 }
 
 /// open_stream(quic_socket, direction)
 #[rustler::nif]
 fn open_stream(quic_socket: ElixirStream, _direction: Direction) -> ElixirStream {
-
     quic_socket
 }
 
 /// read(quic_stream, timeout)
 #[rustler::nif]
 fn read(quic_stream: ElixirStream, _timeout: u64) -> ElixirStream {
-
     quic_stream
 }
 
 /// write(quic_stream, data)
 #[rustler::nif]
 fn write<'a>(quic_stream: ElixirStream, _data: &'a str) -> ElixirStream {
-
     quic_stream
 }
 
