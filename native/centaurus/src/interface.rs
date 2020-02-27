@@ -1,15 +1,20 @@
+mod error;
+mod options;
+mod net;
+use error::{ ApplicationError };
+use options::{ QuicOptions };
+use net::Net;
+
 #[macro_use]
 extern crate rustler;
 use rustler::{ LocalPid };
 use rustler_codegen::{ NifStruct, NifTuple, NifUnitEnum };
 
-mod error;
-mod options;
-mod net;
-use error::{
-    ApplicationError,
+use quinn::{ EndpointBuilder, NewConnection };
+
+use std::{
+    task::{ Context },
 };
-use options::{ QuicOptions, };
 
 atoms! {
     ok,
@@ -33,19 +38,23 @@ init!(
     ]
 );
 
-type Port = u32;
+type Port = u16;
+
+// Override the standard net::IpAddr so that we can easily translate between Langs
+#[derive(NifTuple)]
+#[rustler(encode, decode)]
+struct Ipv4Addr(u8, u8, u8, u8);
 
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
-struct IPAddr(u8, u8, u8, u8);
+struct SocketAddr(Ipv4Addr, Port);
 
 #[derive(NifStruct)]
 #[module="QuicSocket"]
 #[rustler(encode, decode)]
 pub struct ElixirInterface {
     socket: Option<QuicSocket>,
-    ip_addr: Option<IPAddr>,
-    port: Option<Port>,
+    socket_addr: Option<SocketAddr>,
     server_name: String,
     options: Vec<QuicOptions>,
     certificates: Option<String>,
@@ -124,4 +133,40 @@ fn write<'a>(quic_stream: ElixirStream, _data: &'a str) -> ElixirStream {
     quic_stream
 }
 
+
+impl Into<std::net::IpAddr> for Ipv4Addr {
+    fn into(self) -> std::net::IpAddr {
+        std::net::IpAddr::new(std::net::Ipv4Addr::new(self.0, self.1, self.2, self.3))
+    }
+}
+
+impl Into<std::net::SocketAddr> for SocketAddr {
+    fn into(self) -> std::net::SocketAddr {
+        std::net::SocketAddr::new(self.0.into(), self.1)
+    }
+}
+
+impl Net for ElixirInterface {
+    fn address(&mut self) -> &SocketAddr {
+        self.socket_addr
+            .unwrap()
+            .into()
+    }
+
+    fn configure_client(&self) -> EndpointBuilder {
+
+    }
+
+    fn configure_server(&self) -> EndpointBuilder {
+
+    }
+
+    fn notify(&self, connection : NewConnection, ctx : &mut Context) {
+        
+    }
+
+    fn server_name(&self) -> &str {
+
+    }
+}
 
