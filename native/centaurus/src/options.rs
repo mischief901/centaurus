@@ -1,8 +1,8 @@
 /// The set of options, defaults, and related checking functions.
+use rustler_codegen::{ NifUntaggedEnum };
 
-use serde::{ Serialize, Deserialize };
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QuicOptions {
-    timeout: u64,
+#[derive(NifUntaggedEnum)]
+pub enum QuicOptions {
+    Timeout(u64),
 }

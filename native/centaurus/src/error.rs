@@ -4,14 +4,11 @@ use quinn::{
     ConnectError,
     ConnectionError,
     EndpointError,
-    VarInt,
 };
 
-use serde::{ Serialize, Deserialize };
+use rustler_codegen::NifUnitEnum;
 
-use quinn_proto::Code as ErrorCode;
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum Error {
     Error,
     None,
@@ -42,16 +39,8 @@ impl From<EndpointError> for Error {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, NifUnitEnum)]
 pub enum ApplicationError {
-    Quic(QuicError),
     None
 }
 
-impl Into<VarInt> for ApplicationError {
-    fn into(self) -> VarInt {
-        match self {
-            Self::Quic(error_code) => error_code,
-        }
-    }
-}
