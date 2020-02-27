@@ -26,7 +26,7 @@ defmodule Centaurus do
   def load :port do
     priv_path = :code.priv_dir(__MODULE__)
     port_path = Path.wildcard("native/*_port")
-    path = Path.join(priv_path, port_path) | Path.expand
+    path = Path.join(priv_path, port_path) |> Path.expand
     load {:port, path}
   end
 

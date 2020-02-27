@@ -3,7 +3,6 @@ extern crate rustler;
 use rustler::{ LocalPid };
 use rustler_codegen::{ NifStruct, NifTuple, NifUnitEnum };
 
-mod api;
 mod error;
 mod options;
 mod net;

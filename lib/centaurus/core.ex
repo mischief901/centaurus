@@ -111,7 +111,7 @@ defmodule Centaurus.Core do
   Writes the data to the stream.
   """
   @spec write(stream, data) :: :ok | {:error, error}
-  when stream: QuicStream.t
+  when stream: QuicStream.t,
     data: Internal.data,
     error: CommonType.error
   def write(stream, data) do
