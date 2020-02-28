@@ -7,7 +7,7 @@ use net::Net;
 
 #[macro_use]
 extern crate rustler;
-use rustler::{ LocalPid };
+use rustler::{ Decoder, LocalPid, Term };
 use rustler_codegen::{ NifStruct, NifTuple, NifUnitEnum };
 
 use quinn::{ EndpointBuilder, NewConnection };
@@ -45,9 +45,7 @@ type Port = u16;
 #[rustler(encode, decode)]
 struct Ipv4Addr(u8, u8, u8, u8);
 
-#[derive(NifTuple)]
-#[rustler(encode, decode)]
-struct SocketAddr(Ipv4Addr, Port);
+struct SocketAddr(std::net::SocketAddr);
 
 #[derive(NifStruct)]
 #[module="QuicSocket"]
@@ -134,23 +132,22 @@ fn write<'a>(quic_stream: ElixirStream, _data: &'a str) -> ElixirStream {
 }
 
 
-impl Into<std::net::IpAddr> for Ipv4Addr {
-    fn into(self) -> std::net::IpAddr {
-        std::net::IpAddr::new(std::net::Ipv4Addr::new(self.0, self.1, self.2, self.3))
+impl<'a> Decoder<'a> for SocketAddr {
+    fn decode(term : Term<'a>) -> Result<SocketAddr, rustler::Error> {
+        let terms = tuple::get_tuple(term)?;
+        let ip = tuple::get_tuple(terms.0)?;
+        let port = terms.1;
+        
+        
     }
 }
 
-impl Into<std::net::SocketAddr> for SocketAddr {
-    fn into(self) -> std::net::SocketAddr {
-        std::net::SocketAddr::new(self.0.into(), self.1)
-    }
-}
 
 impl Net for ElixirInterface {
-    fn address(&mut self) -> &SocketAddr {
-        self.socket_addr
+    fn address(&self) -> &std::net::SocketAddr {
+        &self.socket_addr
             .unwrap()
-            .into()
+            .0
     }
 
     fn configure_client(&self) -> EndpointBuilder {
