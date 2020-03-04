@@ -8,7 +8,7 @@ use net::Net;
 #[macro_use]
 extern crate rustler;
 use rustler::{ Decoder, Encoder, Env, LocalPid, Term };
-use rustler::types::{ Binary };
+//use rustler::types::{ Binary };
 use rustler_codegen::{ NifStruct, NifTuple, NifUnitEnum };
 
 use quinn::{
@@ -228,7 +228,9 @@ impl PrivateKey {
     }
 }
 
-impl Net<rustler::Error> for ElixirInterface {
+impl Net for ElixirInterface {
+    type E = rustler::Error;
+    type S = ElixirStream;
     
     fn address(&self) -> Option<std::net::SocketAddr> {
         self.socket_addr
@@ -275,11 +277,19 @@ impl Net<rustler::Error> for ElixirInterface {
         Ok(config)
     }
 
-    fn notify(&self, connection : NewConnection, ctx : &mut Context) {
+    fn new_connection(&self, connection : NewConnection, ctx : &mut Context) {
         unimplemented!()
     }
 
     fn server_name(&self) -> &str {
+        &self.server_name
+    }
+
+    fn new_peer_stream(&self) -> () {
+        unimplemented!()
+    }
+
+    fn new_owned_stream(&self) -> Result<ElixirStream, rustler::Error> {
         unimplemented!()
     }
 }

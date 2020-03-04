@@ -133,7 +133,7 @@ impl <T : Net> Connection <T> {
     #[cfg(try_trait)]
     async fn accept(&mut self) -> Result<()> {
         while let new_conn = self.conn.accept()?.await? {
-            self.meta.notify(new_conn);
+            self.meta.new_connection(new_conn);
         }
         Ok(())
     }
