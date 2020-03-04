@@ -93,7 +93,6 @@ defmodule Centaurus.Types do
 
     @type ip_addr :: :inet.ip_address
     @type port_number :: :inet.port_number
-    @type timeout :: :infinity | non_neg_integer
     @type socket_options :: list(any)
     @type error :: any
     

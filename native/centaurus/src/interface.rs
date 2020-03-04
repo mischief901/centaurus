@@ -285,7 +285,7 @@ impl Net for ElixirInterface {
         &self.server_name
     }
 
-    fn new_peer_stream(&self) -> () {
+    fn new_peer_stream(&self) -> Result<ElixirStream, rustler::Error> {
         unimplemented!()
     }
 

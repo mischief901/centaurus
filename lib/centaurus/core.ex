@@ -36,7 +36,7 @@ defmodule Centaurus.Core do
   """
   @spec accept(quic_socket, timeout) :: {:ok, socket} | {:error, error}
   when quic_socket: QuicSocket.t,
-    timeout: CommonType.timeout,
+    timeout: timeout,
     socket: QuicSocket.t,
     error: CommonType.error
   def accept(quic_socket, timeout \\ :infinity)
@@ -51,7 +51,7 @@ defmodule Centaurus.Core do
   when port: CommonType.port_number,
     address: CommonType.ip_addr,
     opts: CommonType.socket_options,
-    timeout: CommonType.timeout,
+    timeout: timeout,
     quic_socket: QuicSocket.t,
     error: CommonType.error
   def connect(port, address, opts, timeout \\ :infinity)
@@ -99,7 +99,7 @@ defmodule Centaurus.Core do
   """
   @spec read(stream, timeout) :: {:ok, data} | {:error, error}
   when stream: QuicStream.t,
-    timeout: CommonType.timeout,
+    timeout: timeout,
     data: Internal.data,
     error: CommonType.error
   def read(stream, timeout \\ :infinity)
