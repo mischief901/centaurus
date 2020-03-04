@@ -10,14 +10,15 @@ use std::{
     },
 };
 
-use quinn::{ EndpointBuilder, NewConnection };
+use quinn::{ EndpointBuilder, NewConnection, ServerConfig };
 
-pub trait Net {
-    fn address(&self) -> &SocketAddr;
+pub trait Net<E> {
+    
+    fn address(&self) -> Option<SocketAddr>;
 
-    fn configure_client(&self) -> EndpointBuilder;
+    fn configure_client(&self) -> Result<EndpointBuilder, E>;
 
-    fn configure_server(&self) -> EndpointBuilder;
+    fn configure_server(&self) -> Result<ServerConfig, E>;
 
     fn notify(&self, connection : NewConnection, ctx : &mut Context) -> ();
     
