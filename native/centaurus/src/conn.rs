@@ -129,13 +129,17 @@ impl <T : Net> Connection <T> {
         Ok(())
     }
 
-    // meta.notify moves the new_conn to a new Connection.
+    // meta.new_connection moves the new_conn to a new handler.
     #[cfg(try_trait)]
     async fn accept(&mut self) -> Result<()> {
         while let new_conn = self.conn.accept()?.await? {
             self.meta.new_connection(new_conn);
         }
         Ok(())
+    }
+
+    fn open_stream(&mut self) -> Result<()> {
+        unimplemented!()
     }
 
     fn close(&self) -> Result<()> {
