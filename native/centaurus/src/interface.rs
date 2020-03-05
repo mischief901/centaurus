@@ -1,9 +1,6 @@
-mod error;
-mod options;
-mod net;
-use error::{ ApplicationError };
-use options::{ QuicOptions };
-use net::Net;
+use crate::error::{ ApplicationError };
+use crate::options::{ QuicOptions };
+use crate::net::Net;
 
 #[macro_use]
 extern crate rustler;
@@ -289,7 +286,7 @@ impl Net for ElixirInterface {
         unimplemented!()
     }
 
-    fn new_owned_stream(&self) -> Result<ElixirStream, rustler::Error> {
+    fn new_owned_stream(&self, direction : Direction) -> Result<ElixirStream, rustler::Error> {
         unimplemented!()
     }
 }

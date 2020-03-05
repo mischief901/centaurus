@@ -1,6 +1,8 @@
 /// 'net.rs' provides a trait that guarantees a struct has the necessary information
 /// For verifying and setting up a connection.
 
+use crate::interface::{ Direction };
+
 use std::{
     net::{
         SocketAddr,
@@ -37,7 +39,7 @@ pub trait Net {
     fn new_peer_stream(&self) -> Result<Self::S, Self::E>;
 
     // Called when you open a new stream
-    fn new_owned_stream(&self) -> Result<Self::S, Self::E>;
+    fn new_owned_stream(&self, direction : Direction) -> Result<Self::S, Self::E>;
 }
 
 

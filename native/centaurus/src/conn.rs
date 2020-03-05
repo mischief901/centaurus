@@ -5,15 +5,14 @@
 ///   locations.
 /// -
 
-mod error;
-mod net;
-mod options;
-use error::{
+use crate::error::{
     Error,
     ApplicationError,
 };
-use net::Net;
-use options::QuicOptions;
+use crate::net::Net;
+use crate::options::QuicOptions;
+use crate::interface::Direction;
+
 use quinn::{
     Connecting,
     EndpointDriver,
@@ -94,7 +93,7 @@ pub struct Connection <T : Net> {
 
 impl <T : Net> Connection <T> {
     fn new_client(meta: T) -> Result<Self> {
-        let sock_addr = meta.address();
+        let sock_addr = meta.address().or()?;
         let conn : ConnectionState = meta
             .configure_client()
             .bind(sock_addr)?
@@ -106,7 +105,7 @@ impl <T : Net> Connection <T> {
     }
 
     fn new_server(meta: T) -> Result<Self> {
-        let sock_addr = meta.address();
+        let sock_addr = meta.address()?;
         let conn : ConnectionState = meta
             .configure_server()
             .bind(sock_addr)?
@@ -138,8 +137,8 @@ impl <T : Net> Connection <T> {
         Ok(())
     }
 
-    fn open_stream(&mut self) -> Result<()> {
-        unimplemented!()
+    fn open_stream(&mut self, direction : Direction) -> Result<()> {
+        self.meta.new_owned_stream(direction)
     }
 
     fn close(&self) -> Result<()> {

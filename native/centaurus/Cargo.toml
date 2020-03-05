@@ -6,7 +6,7 @@ edition = "2018"
 
 [lib]
 name = "centaurus"
-path = "src/interface.rs"
+path = "src/lib.rs"
 crate-type = ["dylib"]
 
 [dependencies]
