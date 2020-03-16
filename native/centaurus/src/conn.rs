@@ -5,16 +5,16 @@ use crate::error::Error;
 use crate::config::Config;
 use crate::runtime::{ RunSocket, RunStream };
 
-type Result<T> = std::result::Result<T, Error>;
+use quinn::{ EndpointDriver, Endpoint, Incoming };
 
 /// The Connection struct ties a block of `meta` data to a connection endpoint
-pub struct Connection<T : Config, H : RunSocket> {
+pub struct Connection<T : Config, H : RunSocket + From<(EndpointDriver, Endpoint, Incoming)>> {
     pub meta: T,
     pub conn: H,
 }
 
-impl <T : Config, H : RunSocket> Connection <T, H> {
-    pub fn new_client(meta: T) -> Result<Self> {
+impl <T : Config, H : RunSocket + From<(EndpointDriver, Endpoint, Incoming)>> Connection <T, H> {
+    pub fn new_client(meta: T) -> Result<Self, <T as Config>::Error> {
         let sock_addr = meta.address()?;
         let conn : H = meta
             .configure_client()?
@@ -26,7 +26,7 @@ impl <T : Config, H : RunSocket> Connection <T, H> {
         })
     }
 
-    pub fn new_server(meta: T) -> Result<Self> {
+    pub fn new_server(meta: T) -> Result<Self, <T as Config>::Error> {
         let sock_addr = meta.address()?;
         let conn : H = meta
             .configure_server()?
@@ -38,8 +38,8 @@ impl <T : Config, H : RunSocket> Connection <T, H> {
         })
     }
 
-    pub fn handler(&self) -> H {
-        self.conn
+    pub fn handler(&self) -> &H {
+        &self.conn
     }
 }
 
@@ -49,15 +49,14 @@ pub struct Stream<T, H : RunStream> {
 }
 
 impl <T, H : RunStream> Stream <T, H> {
-    pub fn new(meta: T) -> Self {
-        let conn = H::new();
+    pub fn new(meta: T, conn: H) -> Self {
         Self {
             meta,
             conn,
         }
     }
 
-    pub fn handler(&self) -> H {
-        self.conn
+    pub fn handler(&self) -> &H {
+        &self.conn
     }
 }
