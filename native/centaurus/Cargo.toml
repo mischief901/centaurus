@@ -10,15 +10,14 @@ path = "src/lib.rs"
 crate-type = ["dylib"]
 
 [dependencies]
-rustler = { git="https://github.com/rusterlium/rustler.git", branch="master", features = ["derive"] }
-rustler_codegen = { version = "0.21.0" }
-serde = { version = "1.0.104", features = ["derive"] }
-lazy_static = "1.0"
+async-trait = "0.1.30"
 err-derive = "0.2.2"
-tokio = { version = "0.2", features = ["full"] }
-quinn = "0.5.3"
-quinn-proto = "0.5.2"
 futures = "0.3.1"
-
-[patch.crates-io]
-rustler_codegen = { git="https://github.com/rusterlium/rustler.git", branch="master" }
+lazy_static = "1.0"
+quinn = "0.6.0"
+rustler = { version = "0.22.0-rc.0", features = ["derive"] }
+rustls = { version = "0.17", features = ["quic"] }
+serde = { version = "1.0.104", features = ["derive"] }
+stable_deref_trait = "1.1.1"
+tokio = { version = "0.2", features = ["full"] }
+webpki = { version = "0.21" }

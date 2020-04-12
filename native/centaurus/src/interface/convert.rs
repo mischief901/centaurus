@@ -2,18 +2,11 @@
 
 use super::types::{
     Certificates,
-    Connection,
-    ElixirInterface,
-    ElixirStream,
     PrivateKey,
     SocketAddr,
-    SocketHandler,
-    Stream,
-    StreamHandler,
 };
 
-use rustler::{ Decoder, Encoder, Env, ResourceArc, Term };
-use rustler::types::tuple;
+use rustler::{ Decoder, Encoder, Env, Term };
 
 use std::path::PathBuf;
 
@@ -65,48 +58,4 @@ impl<'a> Encoder for PrivateKey {
         path.to_str().encode(env)
     }
 }
-/*
-impl<'a> Decoder<'a> for &'a Connection {
-    fn decode(term: Term<'a>) -> Result<Self, rustler::Error> {
-        match tuple::get_tuple(term) {
-            Err(error) => Err(error),
-            Ok(tuple) => {
-                let meta : ElixirInterface = Decoder::decode(tuple[0])?;
-                let conn : SocketHandler = Decoder::decode(tuple[1])?;
-                Ok(&Connection{
-                    meta,
-                    conn
-                })
-            }
-        }
-    }
-}
-/*
-impl<'a> Encoder for &'a Connection {
-    fn encode<'b>(&self, env: Env<'b>) -> Term<'b> {
-        (*self).encode(env)
-    }
-}
-*/
-impl<'a> Decoder<'a> for &'a Stream {
-    fn decode(term: Term<'a>) -> Result<Self, rustler::Error> {
-        match tuple::get_tuple(term) {
-            Err(error) => Err(error),
-            Ok(tuple) => {
-                let meta : ElixirStream = Decoder::decode(tuple[0])?;
-                let conn : StreamHandler = Decoder::decode(tuple[1])?;
-                Ok(&Stream{
-                    meta,
-                    conn
-                })
-            }
-        }
-    }
-}
 
-impl<'a> Encoder for &'a Stream {
-    fn encode<'b>(&self, env: Env<'b>) -> Term<'b> {
-        (*self).encode(env)
-    }
-}
-*/

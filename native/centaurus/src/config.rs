@@ -3,20 +3,28 @@ use crate::error::{ Error };
 
 use std::net::SocketAddr;
 
-use quinn::{ EndpointBuilder, EndpointError };
+use quinn::{ Certificate, CertificateChain, PrivateKey };
+
+#[derive(Clone)]
+pub enum ConnType {
+    Server,
+    Client,
+}
 
 pub trait Config {
-    type Error : Into<Error> + From<EndpointError>;
     // Returns the socket address to connect with.
-    fn address(&self) -> Result<SocketAddr, Self::Error>;
+    fn address(&self) -> Result<SocketAddr, Error>;
 
-    // Configures a client endpoint
-    fn configure_client(&self) -> Result<EndpointBuilder, Self::Error>;
+    // Get the certificates
+    fn certs(&self) -> Result<Certificate, Error>;
 
-    // Configures a server endpoint
-    fn configure_server(&self) -> Result<EndpointBuilder, Self::Error>;
+    // Get the certificate chain
+    fn cert_chain(&self) -> Result<CertificateChain, Error>;
+    
+    // Get the private key (server only)
+    fn private_key(&self) -> Result<PrivateKey, Error>;
 
     // The server name of the connection
-    fn server_name(&self) -> Result<String, Self::Error>;
+    fn server_name(&self) -> Result<String, Error>;
 }
 

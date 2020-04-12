@@ -1,24 +1,20 @@
 /// The Elixir Interface.
 /// Implements a variety of traits for setting up a Quic connection.
-use crate::conn;
-use crate::runtime::{ Handle, RunSocket, RunStream, Runtime };
+use crate::runtime::{ Runtime };
 
 pub mod api;
 pub mod certs;
 pub mod config_impl;
 pub mod convert;
-// TODO: mod options;
 pub mod runtime_impl;
 pub mod types;
 use types::{
-    Connection,
     ElixirInterface,
     ElixirStream,
-    SocketRef,
-    SocketHandler,
+    Socket,
+    SocketInterior,
     Stream,
-    StreamHandler,
-    StreamRef,
+    StreamInterior,
 };
 
 use rustler::{ Env, Term };
@@ -51,23 +47,20 @@ init!(
 fn setup_runtime(env: Env, _: Term) -> bool {
     // The Tokio runtime.
     resource!(Runtime, env);
-    // Handles to jobs in the Tokio runtime.
-    resource!(Handle, env);
     // The Elixir socket interface
     resource!(ElixirInterface, env);
     // The Elixir stream interface
     resource!(ElixirStream, env);
     // internal connection
-    resource!(conn::Connection<SocketRef, SocketHandler>, env);
+    resource!(SocketInterior, env);
     // internal stream
-    resource!(conn::Stream<StreamRef, StreamHandler>, env);
+    resource!(StreamInterior, env);
     // A set up quic connection
-    resource!(Connection, env);
+    resource!(Socket, env);
     // An open stream connection
     resource!(Stream, env);
 
     // Initiate the runtime.
-    Runtime::new();
     true
 }
 
