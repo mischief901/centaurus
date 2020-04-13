@@ -10,7 +10,7 @@ use rustler::{ LocalPid, ResourceArc, NifStruct, NifTuple, NifUnitEnum };
 use std::{
     ops::{ Deref },
     path::{ PathBuf },
-    sync::{ Arc, Mutex, RwLock },
+    sync::{ Arc, RwLock },
 };
 
 //#[derive(NifTuple)]
@@ -97,12 +97,12 @@ type SocketConn = conn::Socket<SocketRef, StreamRef>;
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 pub struct Socket(pub ResourceArc<SocketInterior>);
-pub struct SocketInterior(pub Mutex<SocketConn>);
+pub struct SocketInterior(pub SocketConn);
 
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 pub struct Stream(pub ResourceArc<StreamInterior>);
-pub struct StreamInterior(pub Mutex<StreamConn>);
+pub struct StreamInterior(pub StreamConn);
 
 impl Deref for Socket {
     type Target = SocketInterior;
@@ -113,7 +113,7 @@ impl Deref for Socket {
 }
 
 impl Deref for SocketInterior {
-    type Target = Mutex<SocketConn>;
+    type Target = SocketConn;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -137,7 +137,7 @@ impl Deref for Stream {
 }
 
 impl Deref for StreamInterior {
-    type Target = Mutex<StreamConn>;
+    type Target = StreamConn;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -174,7 +174,7 @@ impl Socket {
 
 impl SocketInterior {
     pub fn new(socket: SocketConn) -> Self {
-        SocketInterior(Mutex::new(socket))
+        SocketInterior(socket)
     }
 }
 
@@ -187,8 +187,8 @@ impl Stream {
 }
 
 impl StreamInterior {
-    pub fn new(socket: StreamConn) -> Self {
-        StreamInterior(Mutex::new(socket))
+    pub fn new(stream: StreamConn) -> Self {
+        StreamInterior(stream)
     }
 }
 
@@ -200,7 +200,7 @@ impl From<SocketConn> for Socket {
 
 impl From<SocketConn> for SocketInterior {
     fn from(socket_int : SocketConn) -> Self {
-        SocketInterior(Mutex::new(socket_int))
+        SocketInterior(socket_int)
     }
 }
 
@@ -212,19 +212,7 @@ impl From<StreamConn> for Stream {
 
 impl From<StreamConn> for StreamInterior {
     fn from(stream_int : StreamConn) -> Self {
-        StreamInterior(Mutex::new(stream_int))
-    }
-}
-
-impl Default for Stream {
-    fn default() -> Self {
-        Stream(ResourceArc::new(StreamInterior::default()))
-    }
-}
-
-impl Default for StreamInterior {
-    fn default() -> Self {
-        StreamInterior(Mutex::new(StreamConn::default()))
+        StreamInterior(stream_int)
     }
 }
 
@@ -233,7 +221,7 @@ impl Default for StreamRef {
         ElixirStream::default().into()
     }
 }
-        
+
 impl Default for ElixirStream {
     fn default() -> Self {
         unimplemented!();

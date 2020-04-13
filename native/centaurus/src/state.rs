@@ -15,7 +15,7 @@ use quinn::{
 
 use std::{
     default::{ Default },
-    sync::{ Arc, Mutex },
+    sync::{ Arc, Mutex, MutexGuard },
     ops::{ Deref },
 };
 
@@ -51,21 +51,27 @@ impl Deref for State {
 }
 
 impl State {
-    pub fn incoming(&self) -> Option<Incoming> {
-        self.lock().unwrap().incoming.take()
-    }
-
-    pub fn endpoint(&self) -> Option<Endpoint> {
-        self.lock().unwrap().endpoint.take()
-    }
-
-    pub fn connection(&self) -> Option<Connection> {
-        self.lock().unwrap().connection.take()
+    pub fn lock(&self) -> MutexGuard<StateInternal> {
+        self.0.lock().unwrap()
     }
 
     pub fn replace<T>(&self, item: T)
     where StateInternal : Update<T> {
-        self.lock().unwrap().update(item);
+        self.lock().update(item);
+    }
+}
+
+impl StateInternal {
+    pub fn incoming(&mut self) -> &mut Option<Incoming> {
+        &mut self.incoming
+    }
+
+    pub fn endpoint(&mut self) -> &mut Option<Endpoint> {
+        &mut self.endpoint
+    }
+
+    pub fn connection(&mut self) -> &mut Option<Connection> {
+        &mut self.connection
     }
 }
 
@@ -89,6 +95,19 @@ impl Update<Endpoint> for StateInternal {
 impl Update<Connection> for StateInternal {
     fn update(&mut self, connection: Connection) {
         self.connection.replace(connection);
+    }
+}
+
+impl Update<StateInternal> for StateInternal {
+    fn update(&mut self, new_state: StateInternal) {
+        *self = new_state;
+    }
+}
+
+impl Update<NewConnection> for StateInternal {
+    fn update(&mut self, new_state: NewConnection) {
+        let new_state : StateInternal = new_state.into();
+        *self = new_state;
     }
 }
 

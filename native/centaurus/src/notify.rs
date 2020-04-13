@@ -7,11 +7,11 @@
 use crate::error::{ Error };
 use crate::conn::{ Stream };
 
-pub trait Notify {
+pub trait Notify<T : Default> : Send + Sync {
     /// Called when a new Bidirectional Stream is opened by the peer.
-    fn new_bi_stream(&self, Stream) -> Result<(), Error>;
+    fn peer_bi_stream(&self, stream: Stream<T>) -> Result<(), Error>;
 
     /// Called when a new Unidirectional Stream is opened by the peer.
-    fn new_uni_stream(&self, Stream) -> Result<(), Error>;
+    fn peer_uni_stream(&self, stream: Stream<T>) -> Result<(), Error>;
 }
 

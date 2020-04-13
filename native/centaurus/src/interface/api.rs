@@ -25,14 +25,14 @@ fn listen(quic_socket: ElixirInterface) -> Result<Socket, Error> {
 #[rustler::nif]
 fn connect(quic_socket: ElixirInterface, address: SocketAddr, timeout: Option<u64>) -> Result<Socket, Error> {
     let socket = Socket::new(quic_socket, ConnType::Client, None)?;
-    (**socket).lock().unwrap().connect(*address, timeout)?;
+    (**socket).connect(*address, timeout)?;
     Ok(socket)
 }
 
 /// accept(quic_socket, timeout)
 #[rustler::nif]
 fn accept(quic_socket: Socket, timeout: Option<u64>) -> Result<Socket, Error> {
-    let socket = (**quic_socket).lock().unwrap().accept(timeout)?
+    let socket = (**quic_socket).accept(timeout)?
         .into();
     Ok(socket)
 }
@@ -41,8 +41,8 @@ fn accept(quic_socket: Socket, timeout: Option<u64>) -> Result<Socket, Error> {
 #[rustler::nif]
 fn open_stream(quic_socket: Socket, stream_type: StreamType) -> Result<Stream, Error> {
     let stream : Stream = match stream_type {
-        StreamType::Uni => (**quic_socket).lock().unwrap().new_uni_stream()?.into(),
-        StreamType::Bi => (**quic_socket).lock().unwrap().new_bi_stream()?.into(),
+        StreamType::Uni => (**quic_socket).new_uni_stream()?.into(),
+        StreamType::Bi => (**quic_socket).new_bi_stream()?.into(),
     };
     Ok(stream)
 }
@@ -52,7 +52,7 @@ fn open_stream(quic_socket: Socket, stream_type: StreamType) -> Result<Stream, E
 fn read(quic_stream: Stream, amount: u64, timeout: Option<u64>) -> Result<Vec<u8>, Error> {
     if let Ok(amount) = amount.try_into() {
         let mut buffer = Vec::with_capacity(amount);
-        match (**quic_stream).lock().unwrap().read(&mut buffer, timeout) {
+        match (**quic_stream).read(&mut buffer, timeout) {
             Ok(_length) => Ok(buffer),
             Err(error) => Err(error),
         }
@@ -65,18 +65,18 @@ fn read(quic_stream: Stream, amount: u64, timeout: Option<u64>) -> Result<Vec<u8
 #[rustler::nif]
 fn write<'a>(quic_stream: Stream, data: &'a str) -> Result<(), Error> {
     let buffer = Vec::from(data);
-    (**quic_stream).lock().unwrap().write(&buffer)
+    (**quic_stream).write(&buffer)
 }
 
 /// close(quic_socket, error_code, reason)
 #[rustler::nif]
 fn close(quic_socket: Socket, error_code: ApplicationError, reason: Vec<u8>) -> Result<(), Error> {
-    (**quic_socket).lock().unwrap().close(error_code, reason)
+    (**quic_socket).close(error_code, reason)
 }
 
 /// close_stream(quic_stream, error_code, reason)
 #[rustler::nif]
 fn close_stream(quic_stream: Stream, error_code: ApplicationError, reason: Vec<u8>) -> Result<(), Error> {
-    (**quic_stream).lock().unwrap().close_stream(error_code, reason)
+    (**quic_stream).close_stream(error_code, reason)
 }
 

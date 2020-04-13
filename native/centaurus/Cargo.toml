@@ -10,6 +10,7 @@ path = "src/lib.rs"
 crate-type = ["dylib"]
 
 [dependencies]
+async-std = "1.5.0"
 async-trait = "0.1.30"
 err-derive = "0.2.2"
 futures = "0.3.1"

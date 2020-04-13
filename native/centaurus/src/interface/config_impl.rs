@@ -4,8 +4,10 @@ use super::types::{
     ElixirInterface,
     SocketAddr,
     SocketRef,
+    StreamRef,
 };
 
+use crate::conn::{ Stream };
 use crate::config::{ Config };
 use crate::error::{ Error };
 
@@ -82,3 +84,4 @@ impl Config for ElixirInterface {
         Ok(self.server_name.clone())
     }
 }
+

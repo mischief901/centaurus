@@ -20,25 +20,25 @@ pub struct Runtime(Arc<Mutex<runtime::Runtime>>);
 
 /// The RunSocket trait dictates how to handle a QUIC socket in the runtime.
 /// 
-pub trait RunSocket<S : Default + Send + Sync> : Send + Sync + Sized {
+pub trait RunSocket<S : Send + Sync> : Send + Sync + Sized {
     /// The Stream type to return on successfully opening a new stream
-    type Stream: Default + Send + Sync;
+    type Stream: Send + Sync;
 
     /// Loops over the incoming uni and bi streams for the socket.
     /// This should know how to communicate that a new stream is opened to the socket owner.
-    fn run_socket(self) -> Result<(), Error>;
+    fn run_socket(&self) -> Result<(), Error>;
     
     /// Accept a new connection.
     /// Takes in an optional timeout parameter (u64).
     /// Returns Ok(Socket) when a new connection has been established.
     /// Returns Err(Error) on timeout or internal error.
-    fn accept(&mut self, timeout: Option<u64>) -> Result<Self, Error>;
+    fn accept(&self, timeout: Option<u64>) -> Result<Self, Error>;
 
     /// Connect to a server
     /// Takes in an optional timeout parameter (u64).
     /// Returns Ok(self) when the connection has been established.
     /// Returns Err(Error) on timeout or internal error.
-    fn connect(&mut self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error>;
+    fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error>;
     
     /// Open a new unidirectional stream
     /// Returns Ok(Stream) when a new stream is successfully opened.
@@ -95,7 +95,7 @@ impl Runtime {
     /// The runtime is a threaded pool named "centaurus-pool".
     pub fn new() -> Self {
         let rt = Builder::new()
-            .thread_name("centaurus-pool")
+            .thread_name("centaurus")
             .threaded_scheduler()
             .enable_all()
             .build()
@@ -118,7 +118,7 @@ impl Runtime {
         (*self).lock().unwrap().handle().clone()
     }
 
-    pub fn block_on<F : Future>(&mut self, future: F) -> F::Output {
+    pub fn block_on<F : Future>(&self, future: F) -> F::Output {
         (*self).lock().unwrap().block_on(future)
     }
 }
@@ -130,3 +130,4 @@ impl Deref for Runtime {
         &self.0
     }
 }
+

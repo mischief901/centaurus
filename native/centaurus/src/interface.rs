@@ -6,6 +6,7 @@ pub mod api;
 pub mod certs;
 pub mod config_impl;
 pub mod convert;
+pub mod notify_impl;
 pub mod runtime_impl;
 pub mod types;
 use types::{
