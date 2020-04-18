@@ -1,133 +1,141 @@
 //! Provides traits and types for working with the Tokio runtime.
+use crate::config::{ Configs, SocketType, SocketConfig, StreamConfig, StreamType };
+use crate::conn::{ Socket, Stream };
 use crate::error::{ ApplicationError, Error };
+use crate::state::{ SocketState, StreamState };
 
 use quinn::{ OpenBi, OpenUni };
 
 use tokio::runtime;
-use tokio::runtime::{ Builder, Handle };
-use tokio::task::{ JoinHandle };
+use tokio::{
+    runtime::{ Builder },
+    sync::{
+        mpsc::{
+            unbounded_channel,
+            UnboundedReceiver as AsyncReceiver,
+            UnboundedSender as AsyncSender,
+        },
+        Mutex,
+    },
+    task::{ JoinHandle },
+};
 
 use std::{
     future::{ Future },
+    marker::{ PhantomData },
     net::{ SocketAddr },
-    ops::{ Deref, DerefMut },
-    sync::{ Arc, Mutex },
+    sync::{ Arc },
+    sync::mpsc::{ Sender },
+    time::{ Duration },
 };
 
-/// A newtype for the tokio Handle to the Runtime.
-#[derive(Clone)]
-pub struct Runtime(Arc<Mutex<runtime::Runtime>>);
-
-/// The RunSocket trait dictates how to handle a QUIC socket in the runtime.
-/// 
-pub trait RunSocket<S : Send + Sync> : Send + Sync + Sized {
-    /// The Stream type to return on successfully opening a new stream
-    type Stream: Send + Sync;
-
-    /// Loops over the incoming uni and bi streams for the socket.
-    /// This should know how to communicate that a new stream is opened to the socket owner.
-    fn run_socket(&self) -> Result<(), Error>;
-    
-    /// Accept a new connection.
-    /// Takes in an optional timeout parameter (u64).
-    /// Returns Ok(Socket) when a new connection has been established.
-    /// Returns Err(Error) on timeout or internal error.
-    fn accept(&self, timeout: Option<u64>) -> Result<Self, Error>;
-
-    /// Connect to a server
-    /// Takes in an optional timeout parameter (u64).
-    /// Returns Ok(self) when the connection has been established.
-    /// Returns Err(Error) on timeout or internal error.
-    fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error>;
-    
-    /// Open a new unidirectional stream
-    /// Returns Ok(Stream) when a new stream is successfully opened.
-    /// Returns Err(Error) when there is an error opening the stream.
-    fn new_uni_stream(&self) -> Result<Self::Stream, Error>;
-
-    /// Open a new bidirectional stream
-    /// Returns Ok(Stream) when a new stream is successfully opened.
-    /// Returns Err(Error) when there is an error opening the stream.
-    fn new_bi_stream(&self) -> Result<Self::Stream, Error>;
-    
-    /// Close the QUIC connection and all associated streams.
-    /// Takes in the ApplicationError and Reason to send to the peer.
-    /// An error code of 0 indicates no error.
-    /// Returns Ok(()) on success.
-    /// Return Err(Error) on internal error.
-    fn close(&self, error_code: ApplicationError, reason: Vec<u8>) -> Result<(), Error>;
+lazy_static! {
+    static ref POOL_HANDLE : Option<JoinHandle<()>> = None;
 }
 
-/// The RunStream trait dictates how to handle a QUIC stream in the runtime.
-///
-pub trait RunStream<S, T> : Sync + Send {
-    
-    /// Loop over the recv stream and the close stream future.
-    fn run_stream(self) -> Result<(), Error>;
-    
-    /// Creates a new stream of the appropriate type.
-    /// These streams are owned by the peer and cannot be closed by anyone else.
-    fn new_uni_stream(stream_config: Option<T>, stream_future: OpenUni) -> Self;
-    fn new_bi_stream(stream_config: Option<T>, stream_future: OpenBi) -> Self;
-    
-    /// Read from the stream.
-    /// Takes in a mutable buffer into which to write data and an optional timeout (u64).
-    /// Returns Ok(u64) for success. The u64 is the number of bytes read.
-    /// Returns Err(Error) on timeout, stream type mismatch, or internal error.
-    fn read(&self, buffer: &mut [u8], timeout: Option<u64>) -> Result<u64, Error>;
-
-    /// Write to the stream.
-    /// Takes in a buffer from which to read data.
-    /// Returns Ok(()) on success.
-    /// Returns Err(Error) on stream type mismatch or internal error.
-    fn write(&self, buffer: &[u8]) -> Result<(), Error>;
-
-    /// Closes the stream.
-    /// Takes in an ApplicationError code and a reason to send to the peer.
-    /// Returns Ok(()) on success.
-    /// Returns Err(Error) on stream type mismatch or internal error.
-    /// An ApplicationError code of 0 indicates no error to the peer.
-    fn close_stream(&self, error_code: ApplicationError, reason: Vec<u8>)-> Result<(), Error>;
+/// Starts a new tokio runtime.
+/// The runtime is a threaded pool named "centaurus-pool".
+fn new_pool() -> runtime::Runtime {
+    Builder::new()
+        .thread_name("centaurus-pool")
+        .threaded_scheduler()
+        .enable_all()
+        .build()
+        .unwrap()
 }
 
-impl Runtime {
-    /// Starts a new tokio runtime.
-    /// The runtime is a threaded pool named "centaurus-pool".
-    pub fn new() -> Self {
-        let rt = Builder::new()
-            .thread_name("centaurus")
-            .threaded_scheduler()
-            .enable_all()
-            .build()
-            .unwrap();
-        Runtime(Arc::new(Mutex::new(rt)))
-    }
 
-    pub fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
-    where F : Future + Send + 'static,
-          F::Output : Send + 'static {
-        (*self).lock().unwrap().spawn(future)
-    }
+// The main tokio runtime.
+struct RuntimeInternal(runtime::Runtime);
+
+// State of the socket on the runtime.
+struct SocketRuntime<S : SocketConfig, T : StreamConfig> {
+    receiver: AsyncReceiver<SocketEvent<S, T>>,
+    configs: Configs<S, T>,
+    socket_state: SocketState,
+}
+
+// State of the stream on the runtime.
+struct StreamRuntime<S : SocketConfig, T : StreamConfig> {
+    receiver: AsyncReceiver<StreamEvent<T>>,
+    configs: Configs<S, T>,
+    stream_state: StreamState,
+}
+
     
-    pub fn enter<F, R>(&self, function: F) -> R
-    where F : FnOnce() -> R {
-        (*self).lock().unwrap().enter(function)
-    }
+pub enum Event<S : SocketConfig, T : StreamConfig> {
+    OpenSocket(Sender<Result<Socket<S, T>, Error>>, SocketType, Configs<S, T>, SocketState),
+}
 
-    pub fn handle(&self) -> Handle {
-        (*self).lock().unwrap().handle().clone()
-    }
+// Events the socket knows how to handle.
+pub enum SocketEvent<S : SocketConfig, T : StreamConfig> {
+    Accept(Sender<Result<Socket<S, T>, Error>>, Option<Duration>),
+    Close(ApplicationError, Option<Vec<u8>>),
+    Connect(Sender<Result<Socket<S, T>, Error>>, SocketAddr, Option<Duration>),
+    Listen(Sender<Result<(), Error>>, SocketAddr),
+    OpenBiStream(Sender<Result<Stream<T>, Error>>),
+    OpenUniStream(Sender<Result<Stream<T>, Error>>),
+}
 
-    pub fn block_on<F : Future>(&self, future: F) -> F::Output {
-        (*self).lock().unwrap().block_on(future)
+// Events the stream knows how to handle.
+pub enum StreamEvent<T> {
+    CloseStream(ApplicationError, Option<Vec<u8>>),
+    Read(Sender<Result<u64, Error>>, Arc<Mutex<Vec<u8>>>, Option<Duration>),
+    Write(Sender<Result<(), Error>>, Vec<u8>),
+    Blank(PhantomData<T>),
+}
+
+pub fn run<S : SocketConfig + 'static, T : StreamConfig + 'static>(mut pool : AsyncReceiver<Event<S, T>>) {
+    let rt = new_pool();
+    rt.block_on(async {
+        loop {
+            tokio::join!{
+                tokio::spawn(async move {
+                    match pool.recv().await.unwrap() {
+                        Event::OpenSocket(responder, conn_type, configs, socket_state) => {
+                            let (sender, receiver) = unbounded_channel();
+                            let socket = SocketRuntime {
+                                receiver,
+                                configs,
+                                socket_state,
+                            };
+                            // Send the socket's sender to the synchronous side.
+                            responder.send(Ok(sender.into())).unwrap();
+                            // Spawn a new task to handle the socket.
+                            tokio::spawn(async move {
+                                run_socket(socket);
+                            });
+                        }
+                    }
+                })
+            };
+        }
+    });
+}
+
+
+async fn run_socket<S, T>(mut socket: SocketRuntime<S, T>)
+where S : SocketConfig, T : StreamConfig {
+    loop {
+        match socket.receiver.recv().await.unwrap() {
+            SocketEvent::Accept(response, timeout) => {},
+            SocketEvent::Close(application_error, reason) => {},
+            SocketEvent::Connect(response, sock_addr, timeout) => {},
+            SocketEvent::Listen(response, sock_addr) => {},
+            SocketEvent::OpenBiStream(response) => {},
+            SocketEvent::OpenUniStream(response) => {},
+        }
     }
 }
 
-impl Deref for Runtime {
-    type Target = Mutex<runtime::Runtime>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+async fn run_stream<S, T>(mut stream: StreamRuntime<S, T>)
+where S : SocketConfig, T : StreamConfig {
+    loop {
+        match stream.receiver.recv().await.unwrap() {
+            StreamEvent::CloseStream(application_error, reason) => {},
+            StreamEvent::Read(response, buffer, timeout) => {},
+            StreamEvent::Write(response, buffer) => {},
+        }
     }
 }
 

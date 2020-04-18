@@ -3,6 +3,7 @@
 use quinn::{
     Connection,
     Endpoint,
+    EndpointBuilder,
     Incoming,
     IncomingBiStreams,
     IncomingUniStreams,
@@ -13,111 +14,66 @@ use quinn::{
     SendStream,
 };
 
+use tokio::sync::{ Mutex };
+
 use std::{
     default::{ Default },
-    sync::{ Arc, Mutex, MutexGuard },
+    sync::{ Arc },
     ops::{ Deref },
 };
 
 #[derive(Clone)]
-pub struct State(Arc<Mutex<StateInternal>>);
+pub struct SocketState(Arc<Mutex<SocketStateInternal>>);
 
 #[derive(Default)]
-pub struct StateInternal {
+pub struct SocketStateInternal {
     pub incoming: Option<Incoming>,
     pub endpoint: Option<Endpoint>,
+    pub endpoint_builder: Option<EndpointBuilder>,
     pub connection: Option<Connection>,
     pub in_uni_streams: Option<IncomingUniStreams>,
     pub in_bi_streams: Option<IncomingBiStreams>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct StreamState(Arc<Mutex<StreamStateInternal>>);
 
 #[derive(Default)]
 pub struct StreamStateInternal {
-    uni_future: Option<OpenUni>,
-    bi_future: Option<OpenBi>,
     pub recv: Option<RecvStream>,
     pub send: Option<SendStream>,
 }
 
-impl Deref for State {
-    type Target = Mutex<StateInternal>;
+impl Deref for SocketState {
+    type Target = Mutex<SocketStateInternal>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl State {
-    pub fn lock(&self) -> MutexGuard<StateInternal> {
-        self.0.lock().unwrap()
-    }
-
-    pub fn replace<T>(&self, item: T)
-    where StateInternal : Update<T> {
-        self.lock().update(item);
+impl From<EndpointBuilder> for SocketState {
+    fn from(endpoint: EndpointBuilder) -> Self {
+        SocketState(Arc::new(Mutex::new(endpoint.into())))
     }
 }
 
-impl StateInternal {
-    pub fn incoming(&mut self) -> &mut Option<Incoming> {
-        &mut self.incoming
-    }
-
-    pub fn endpoint(&mut self) -> &mut Option<Endpoint> {
-        &mut self.endpoint
-    }
-
-    pub fn connection(&mut self) -> &mut Option<Connection> {
-        &mut self.connection
+impl From<EndpointBuilder> for SocketStateInternal {
+    fn from(endpoint_builder: EndpointBuilder) -> Self {
+        SocketStateInternal {
+            endpoint_builder,
+            ..Default::default()
+        }
     }
 }
 
-/// A small trait for generically updating the state.
-pub trait Update<T> {
-    fn update(&mut self, item: T);
-}
-
-impl Update<Incoming> for StateInternal {
-    fn update(&mut self, incoming: Incoming) {
-        self.incoming.replace(incoming);
-    }
-}
-
-impl Update<Endpoint> for StateInternal {
-    fn update(&mut self, endpoint: Endpoint) {
-        self.endpoint.replace(endpoint);
-    }
-}
-
-impl Update<Connection> for StateInternal {
-    fn update(&mut self, connection: Connection) {
-        self.connection.replace(connection);
-    }
-}
-
-impl Update<StateInternal> for StateInternal {
-    fn update(&mut self, new_state: StateInternal) {
-        *self = new_state;
-    }
-}
-
-impl Update<NewConnection> for StateInternal {
-    fn update(&mut self, new_state: NewConnection) {
-        let new_state : StateInternal = new_state.into();
-        *self = new_state;
-    }
-}
-
-impl From<NewConnection> for State {
+impl From<NewConnection> for SocketState {
     fn from(conn: NewConnection) -> Self {
-        State(Arc::new(Mutex::new(conn.into())))
+        SocketState(Arc::new(Mutex::new(conn.into())))
     }
 }
 
-impl From<NewConnection> for StateInternal {
+impl From<NewConnection> for SocketStateInternal {
     fn from(conn: NewConnection) -> Self {
         let NewConnection {
             connection,
@@ -125,7 +81,7 @@ impl From<NewConnection> for StateInternal {
             bi_streams,
             ..
         } = conn;
-        StateInternal {
+        SocketStateInternal {
             connection: Some(connection),
             in_uni_streams: Some(uni_streams),
             in_bi_streams: Some(bi_streams),
@@ -134,30 +90,30 @@ impl From<NewConnection> for StateInternal {
     }
 }
 
-impl From<Endpoint> for State {
+impl From<Endpoint> for SocketState {
     fn from(endpoint: Endpoint) -> Self {
-        State(Arc::new(Mutex::new(endpoint.into())))
+        SocketState(Arc::new(Mutex::new(endpoint.into())))
     }
 }
 
-impl From<Endpoint> for StateInternal {
+impl From<Endpoint> for SocketStateInternal {
     fn from(endpoint: Endpoint) -> Self {
-        StateInternal {
+        SocketStateInternal {
             endpoint: Some(endpoint),
             ..Default::default()
         }
     }
 }
 
-impl From<Incoming> for State {
+impl From<Incoming> for SocketState {
     fn from(incoming: Incoming) -> Self {
-        State(Arc::new(Mutex::new(incoming.into())))
+        SocketState(Arc::new(Mutex::new(incoming.into())))
     }
 }
 
-impl From<Incoming> for StateInternal {
+impl From<Incoming> for SocketStateInternal {
     fn from(incoming: Incoming) -> Self {
-        StateInternal {
+        SocketStateInternal {
             incoming: Some(incoming),
             ..Default::default()
         }
