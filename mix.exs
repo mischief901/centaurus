@@ -8,7 +8,9 @@ defmodule Centaurus.MixProject do
       elixir: "~> 1.10",
       compilers: [:rustler] ++ Mix.compilers(),
       rustler_crates: [
-        centaurus: []
+        centaurus: [
+          mode: :debug
+        ]
       ],
       start_permanent: Mix.env() == :prod,
       deps: deps()

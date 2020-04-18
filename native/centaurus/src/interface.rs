@@ -30,7 +30,7 @@ atoms! {
 }
 
 init!(
-    "Elixir.Centaurus",
+    "Elixir.Centaurus.Nif",
     [
         api::accept,
         api::connect,

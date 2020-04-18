@@ -5,7 +5,7 @@ defmodule Centaurus.Core do
   See each function for details.
   """
 
-  alias Nif
+  alias Centaurus.Nif
   alias Centaurus.Types
   alias Types.SocketConfig
   alias Types.StreamConfig
@@ -39,7 +39,7 @@ defmodule Centaurus.Core do
     error: Types.error
   def listen(socket_config, stream_config)
   def listen(socket_config, stream_config) do
-    Nif.listen_nif(socket_config, stream_config)
+    Nif.listen(socket_config, stream_config)
   end
 
   @doc """
@@ -50,13 +50,13 @@ defmodule Centaurus.Core do
     error: Types.error
   def accept(socket, timeout \\ :infinity)
   def accept(socket, timeout) do
-    Nif.accept_nif(socket, timeout)
+    Nif.accept(socket, timeout)
   end
 
   @doc """
   Opens a connection to the specified server. Returns a QuicSocket on success.
   """
-  @spec connect(socket_config, stream_config, port, address, opts, timeout) :: {:ok, socket} | {:error, error}
+  @spec connect(socket_config, stream_config, port, address, opts, timeout) :: {:ok, Types.socket} | {:error, error}
   when port: Types.port_number,
     address: Types.ip_addr,
     opts: Types.socket_options,
@@ -68,7 +68,7 @@ defmodule Centaurus.Core do
   def connect(socket_config, stream_config, port, address, _opts, timeout) do
     address = :inet.ntoa(address) |> to_string
     port = to_string(port)
-    Nif.connect_nif(socket_config, stream_config, address <> port, timeout)
+    Nif.connect(socket_config, stream_config, address <> port, timeout)
   end
 
   @doc """
@@ -103,13 +103,13 @@ defmodule Centaurus.Core do
   Timeout defaults to infinity.
   """
   @spec read(Types.stream, amount, timeout) :: {:ok, data} | {:error, error}
-  when amount: interger() >= 0,
+  when amount: non_neg_integer(),
     timeout: timeout,
     data: String.t,
     error: Types.error
   def read(stream, amount, timeout \\ :infinity)
   def read(stream, amount, timeout) do
-    Nif.read_nif(stream, amount, timeout)
+    Nif.read(stream, amount, timeout)
   end
 
   @doc """
@@ -119,7 +119,7 @@ defmodule Centaurus.Core do
   when data: String.t,
     error: Types.error
   def write(stream, data) do
-    Nif.write_nif(stream, data)
+    Nif.write(stream, data)
   end
 
   @doc """
@@ -133,28 +133,6 @@ defmodule Centaurus.Core do
     reason: String.t
   def close(socket, error_code \\ :none, reason \\ "")
   def close(socket, error_code, reason) do
-    Nif.close_nif(socket, error_code, reason)
-  end
-
-  defmodule Nif do
-    @moduledoc false
-
-    @nif_error :erlang.nif_error(:nif_not_loaded)
-    
-    def accept_nif(_socket, _timeout), do: @nif_error
-
-    def connect_nif(_socket_config, _stream_config, _address, _timeout), do: @nif_error
-
-    def close_nif(_socket, _error_code, _reason), do: @nif_error
-
-    def close_stream_nif(_stream, _error_code, _reason), do: @nif_error
-
-    def listen_nif(_socket_config, _stream_config), do: @nif_error
-
-    def open_stream_nif(_socket, _direction), do: @nif_error
-
-    def read_nif(_stream, _amount, _timeout), do: @nif_error
-
-    def write_nif(_stream, _data), do: @nif_error    
+    Nif.close(socket, error_code, reason)
   end
 end
