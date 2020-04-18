@@ -10,5 +10,7 @@ mod runtime;
 mod state;
 
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate rustler;
 extern crate webpki;

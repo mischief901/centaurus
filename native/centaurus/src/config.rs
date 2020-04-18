@@ -5,13 +5,23 @@ use std::net::SocketAddr;
 
 use quinn::{ Certificate, CertificateChain, PrivateKey };
 
-#[derive(Clone)]
-pub enum ConnType {
+pub enum SocketType {
     Server,
     Client,
 }
 
-pub trait Config {
+pub enum StreamType {
+    Uni,
+    Bi,
+}
+
+#[derive(Clone)]
+pub struct Configs<S : SocketConfig, T : StreamConfig> {
+    pub socket_config: S,
+    pub stream_config: T,
+}
+
+pub trait SocketConfig : Send + Sync {
     // Returns the socket address to connect with.
     fn address(&self) -> Result<SocketAddr, Error>;
 
@@ -26,5 +36,9 @@ pub trait Config {
 
     // The server name of the connection
     fn server_name(&self) -> Result<String, Error>;
+}
+
+pub trait StreamConfig : Send + Sync {
+    // 
 }
 

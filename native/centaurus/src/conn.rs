@@ -2,131 +2,95 @@
 /// initializes the handler for the connection.
 
 use crate::error::{ ApplicationError, Error };
-use crate::config::{ Config, ConnType };
-use crate::runtime::{ RunSocket, RunStream, Runtime };
-use crate::state::{ State, StreamState };
+use crate::config::{ Configs, SocketConfig, SocketType, StreamConfig, StreamType };
+use crate::interface;
+use crate::runtime::{ Event, SocketEvent, StreamEvent };
+use crate::state::{ SocketState };
 
 use futures::StreamExt;
 
 use quinn::{
     ClientConfigBuilder,
     Endpoint,
-    Incoming,
-    NewConnection,
-    OpenBi,
-    OpenUni,
     ServerConfig,
     ServerConfigBuilder,
     TransportConfig
 };
 
-use tokio::time;
+use tokio::sync::{
+    Mutex,
+    mpsc::{
+        UnboundedSender as AsyncSender,
+    },
+};
 
 use std::{
     default::{ Default },
     net::{ SocketAddr },
     sync::{ Arc },
+    sync::mpsc::{ channel },
     time::{ Duration },
 };
 
-/// The Socket struct ties a block of `meta` data to a connection endpoint
-pub struct Socket<T : Clone + Config, S : Clone + Default + Send + Sync> {
-    pub meta: T,
-    pub conn: Runtime,
-    pub conn_type: ConnType,
-    pub stream_config: Option<S>,
-    state: State,
+#[derive(Clone)]
+pub struct Config<S : SocketConfig, T : StreamConfig> {
+    pub socket_config: S,
+    pub stream_config: T,
 }
 
-impl <T : Clone + Config, S : Clone + Default + Send + Sync> Socket <T, S> {
-    pub fn new(meta: T, conn_type: ConnType, stream_config: Option<S>) -> Result<Self, Error> {
+pub struct Socket<S : SocketConfig, T : StreamConfig>(AsyncSender<SocketEvent<S, T>>);
+pub struct Stream<T : StreamConfig>(AsyncSender<StreamEvent<T>>);
+
+impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {    
+    pub fn open_socket(conn_type: SocketType, socket_config: S, stream_config: T) -> Result<Self, Error> {
+        let (sender, receiver) = channel();
         let mut endpoint = Endpoint::builder();
-        let sock_addr = meta.address()?;
-        let conn = Runtime::new();
-        match conn_type {
-            ConnType::Client => {
-                let certs = meta.certs()?;
+        let sock_addr = socket_config.address()?;
+        let configs = Configs {
+            socket_config,
+            stream_config,
+        };
+        let socket_handle = interface::handle()?;
+        let state : SocketState = match conn_type {
+            SocketType::Client => {
+                let certs = socket_config.certs()?;
                 let mut client = ClientConfigBuilder::default();
                 client.add_certificate_authority(certs)?;
                 endpoint.default_client_config(client.build());
-                let (endpoint, _incoming) = conn.enter(move || {
-                    endpoint.bind(&sock_addr)
-                })?;
-                Ok(Socket{
-                    meta,
-                    conn,
-                    conn_type,
-                    stream_config,
-                    state: endpoint.into(),
-                })
+                endpoint.into()
             },
-            ConnType::Server => {
-                let private_key = meta.private_key()?;
+            SocketType::Server => {
+                let private_key = socket_config.private_key()?;
                 let mut transport_config = TransportConfig::default();
                 transport_config.stream_window_uni(0);
                 let mut server_config = ServerConfig::default();
                 server_config.transport = Arc::new(transport_config);
-                let cert_chain = meta.cert_chain()?;
+                let cert_chain = socket_config.cert_chain()?;
                 let mut server = ServerConfigBuilder::new(server_config);
                 server.certificate(cert_chain, private_key)?;
                 endpoint.listen(server.build());
-                let (_endpoint, incoming) = conn.enter(move || {
-                    endpoint.bind(&sock_addr)
-                })?;
-                Ok(Socket{
-                    meta,
-                    conn,
-                    conn_type,
-                    stream_config,
-                    state: incoming.into(),
-                })
+                endpoint.into()
             },
-        }
+        };
+        let event = Event::OpenSocket(sender, conn_type, configs, state);
+        socket_handle.send(event)?;
+        receiver.recv()
     }
-}
 
-pub struct Stream<T : Default> {
-    pub meta: Option<T>,
-    pub conn: Runtime,
-    stream_state: StreamState,
-}
-
-impl <T : Default> Stream <T> {
-    pub fn new(meta: Option<T>, conn: Runtime, stream_state: StreamState) -> Self {
-        Self {
-            meta,
-            conn,
-            stream_state,
-        }
-    }
-}
-
-impl<T : Default> Default for Stream<T> {
-    fn default() -> Self {
-        let meta = Some(T::default());
-        let conn = Runtime::new();
-        let stream_state = StreamState::default();
-        Self {
-            meta,
-            conn,
-            stream_state
-        }
-    }
-}
-
-impl<T : Clone + Config + Send + Sync, S : Clone + Default + Send + Sync> RunSocket<Stream<S>> for Socket<T, S> {
-    type Stream = Stream<S>;
-
-    fn run_socket(self) -> Result<(), Error> {
-        unimplemented!();
+    fn listen(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error> {
+        let timeout = timeout.map(|time| Duration::from_millis(time));
+        let (sender, receiver) = channel();
+        self.send(SocketEvent::Listen(sender, address, timeout))?;
+        receiver.recv()
     }
     
-    fn accept(&mut self, timeout: Option<u64>) -> Result<Self, Error> {
+    fn accept(&self, timeout: Option<u64>) -> Result<Self, Error> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
-        let mut incoming = self.state
-            .incoming()
-            .unwrap();
-        let handle = self.conn.enter(async move || {
+        let (sender, receiver) = channel();
+        self.send(SocketEvent::Accept(sender, timeout))?;
+        receiver.recv()
+    }
+/*        let handle = self.conn.enter(async move || {
             // The first await is for connection coming in.
             // The second await is for setting up the connection.
             let future = incoming.next()
@@ -154,15 +118,16 @@ impl<T : Clone + Config + Send + Sync, S : Clone + Default + Send + Sync> RunSoc
             meta: self.meta.clone(),
         };
         self.state.replace(incoming);
-        Ok(new_conn)
-    }
+        Ok(new_conn) */
 
-    fn connect(&mut self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error> {
+    fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
-        let server_name = self.meta.server_name()?;
-        let endpoint = self.state
-            .endpoint()
-            .unwrap();
+        let (sender, receiver) = channel();
+        let event = SocketEvent::Connect(sender, address, timeout);
+        self.send(event)?;
+        receiver.recv()
+    }
+     /*   
         let connection_handle = self.conn.enter(async move || {
             if let Some(duration) = timeout {
                 time::timeout(duration,
@@ -183,59 +148,67 @@ impl<T : Clone + Config + Send + Sync, S : Clone + Default + Send + Sync> RunSoc
         self.state = new_conn.into();
         Ok(())
     }
+     */
     
-    fn new_uni_stream(&self) -> Result<Self::Stream, Error> {
-        let stream = self.state
+    fn new_uni_stream(&self) -> Result<Stream<T>, Error> {
+        let (sender, receiver) = channel();
+        let event = SocketEvent::OpenUniStream(sender);
+        self.send(event)?;
+        receiver.recv()
+    }
+/*      let stream = self.state
             .connection()
             .as_ref()
             .unwrap()
             .open_uni();
         Ok(Self::Stream::new_uni_stream(self.stream_config.clone(), stream))
     }
-
-    fn new_bi_stream(&self) -> Result<Self::Stream, Error> {
-        let stream = self.state
+*/
+    fn new_bi_stream(&self) -> Result<Stream<T>, Error> {
+        let (sender, receiver) = channel();
+        let event = SocketEvent::OpenBiStream(sender);
+        self.send(event)?;
+        receiver.recv()
+    }
+/*        let stream = self.state
             .connection()
             .as_ref()
             .unwrap()
             .open_bi();
         Ok(Self::Stream::new_bi_stream(self.stream_config.clone(), stream))
     }
-
-    fn close(&self, error_code: ApplicationError, reason: Vec<u8>) -> Result<(), Error> {
-        unimplemented!();
+*/
+    fn close(self, error_code: ApplicationError, reason: Vec<u8>) {
+        let event = SocketEvent::Close(error_code, reason);
+        self.send(event).unwrap();
     }
 }
 
-impl<T : Clone + Send + Sync + Default> RunStream<Stream<T>, T> for Stream<T> {
-    fn run_stream(self) -> Result<(), Error> {
-        unimplemented!();
-    }
-    
-    fn new_uni_stream(default_config: Option<T>, stream_future: OpenUni) -> Self {
-        unimplemented!();
-/*        Stream { meta: default_config,
-                 stream_state: stream_future.into(),
-                 ..Default::default() } */
+impl<T : StreamConfig> Stream<T> {
+    fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64, Error> {
+        let timeout = timeout.map(|time| Duration::from_millis(time));
+        let safe_buffer = Arc::new(Mutex::new(buffer));
+        let (sender, receiver) = channel();
+        let event = StreamEvent::Read(sender, safe_buffer.clone(), timeout);
+        self.send(event)?;
+        receiver.recv()
     }
 
-    fn new_bi_stream(default_config: Option<T>, stream_future: OpenBi) -> Self {
-        unimplemented!();
-/*        Stream { meta: default_config,
-                 stream_state: stream_future.into(),
-                 ..Default::default() }*/
-    }
-    
-    fn read(&self, buffer: &mut [u8], timeout: Option<u64>) -> Result<u64, Error> {
-        unimplemented!();
+    fn write(&self, buffer: Vec<u8>) -> Result<(), Error> {
+        let (sender, receiver) = channel();
+        let event = StreamEvent::Write(sender, buffer);
+        self.send(event)?;
+        receiver.recv()
     }
 
-    fn write(&self, buffer: &[u8]) -> Result<(), Error> {
-        unimplemented!();
+    fn close_stream(self, error_code: ApplicationError, reason: Option<Vec<u8>>) {
+        let event = StreamEvent::CloseStream(error_code, reason);
+        self.send(event);
     }
-
-    fn close_stream(&self, error_code: ApplicationError, reason: Vec<u8>) -> Result<(), Error> {
-        unimplemented!();
-    }   
 }
 
+impl<S : SocketConfig, T : StreamConfig> From<AsyncSender<SocketEvent<S, T>>> for Socket<S, T> {
+    fn from(sender : AsyncSender<SocketEvent<S, T>>) -> Self {
+        Self(sender)
+    }
+}

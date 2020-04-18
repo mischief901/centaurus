@@ -1,12 +1,14 @@
 //! Contains the config impls for Quic. See centaurus::config for details.
 
 use super::types::{
-    ElixirInterface,
+    BeamSocket,
+    BeamStream,
     SocketAddr,
     SocketRef,
+    StreamRef,
 };
 
-use crate::config::{ Config };
+use crate::config::{ SocketConfig, StreamConfig };
 use crate::error::{ Error };
 
 use quinn::{
@@ -14,7 +16,7 @@ use quinn::{
     CertificateChain,
 };
 
-impl Config for SocketRef {
+impl SocketConfig for SocketRef {
     fn address(&self) -> Result<std::net::SocketAddr, Error> {
         self.read()
             .map_or(Err(Error::InternalError),
@@ -46,7 +48,7 @@ impl Config for SocketRef {
     }
 }
 
-impl Config for ElixirInterface {
+impl SocketConfig for BeamSocket {
     fn address(&self) -> Result<std::net::SocketAddr, Error> {
         self.socket_addr
             .map(|SocketAddr(socket)| socket)
@@ -81,4 +83,13 @@ impl Config for ElixirInterface {
     fn server_name(&self) -> Result<String, Error> {
         Ok(self.server_name.clone())
     }
+}
+
+impl StreamConfig for StreamRef {
+
+}
+
+
+impl StreamConfig for BeamStream {
+
 }
