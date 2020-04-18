@@ -85,7 +85,7 @@ pub enum SocketEvent {
     Accept(Sender<Result<Socket, Error>>, Option<Duration>),
     Close(ApplicationError, Option<Vec<u8>>),
     Connect(Sender<Result<Socket, Error>>, SocketAddr, Option<Duration>),
-    Listen(Sender<Result<(), Error>>, SocketAddr),
+    Listen(Sender<Result<(), Error>>),
     OpenBiStream(Sender<Result<Stream, Error>>),
     OpenUniStream(Sender<Result<Stream, Error>>),
 }
@@ -132,7 +132,7 @@ async fn run_socket(mut socket: SocketRuntime) {
             SocketEvent::Accept(response, timeout) => {},
             SocketEvent::Close(application_error, reason) => {},
             SocketEvent::Connect(response, sock_addr, timeout) => {},
-            SocketEvent::Listen(response, sock_addr) => {},
+            SocketEvent::Listen(response) => {},
             SocketEvent::OpenBiStream(response) => {},
             SocketEvent::OpenUniStream(response) => {},
         }

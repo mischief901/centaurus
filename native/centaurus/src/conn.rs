@@ -89,9 +89,9 @@ impl Socket {
         receiver.recv()?
     }
 
-    pub fn listen(&self, address: SocketAddr) -> Result<(), Error> {
+    pub fn listen(&self) -> Result<(), Error> {
         let (sender, receiver) = channel();
-        self.send(SocketEvent::Listen(sender, address))?;
+        self.send(SocketEvent::Listen(sender))?;
         receiver.recv()?
     }
     

@@ -17,9 +17,9 @@ use std::convert::TryInto;
 
 /// listen(quic_socket)
 #[rustler::nif]
-fn listen(socket_config: BeamSocket, stream_config: BeamStream, address: SocketAddr) -> Result<(), Error> {
+fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<(), Error> {
     let socket = conn::Socket::new(SocketType::Server, socket_config.into(), stream_config.into())?;
-    socket.listen(*address)
+    socket.listen()
 }
 
 /// connect(quic_socket, timeout)
