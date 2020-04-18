@@ -74,16 +74,18 @@ defmodule Centaurus.Types do
       certificates: nil
     ]
 
+    alias Centaurus.Types
+    
     @type t :: %__MODULE__{
-      bind_addr: ip_addr,
-      bind_port: port_number,
+      bind_addr: Types.ip_addr,
+      bind_port: Types.port_number,
       server_name: String.t,
-      options: socket_options,
+      options: Types.socket_options,
       certificates: Path.t
     }
 
-    @spec set_opts(%__MODULE__.t, opts) :: {:ok, %__MODULE__.t} | {:error, error}
-    when opts: quic_options
+    @spec set_opts(__MODULE__.t, opts) :: {:ok, __MODULE__.t} | {:error, Types.error}
+    when opts: Types.quic_options
     def set_opts(socket_config, _opts) do
       {:ok, socket_config}
     end    
@@ -102,25 +104,19 @@ defmodule Centaurus.Types do
     data: Data to read from the stream.
     """
 
-    @enforce_keys [:socket_id, :direction]
+    alias Centaurus.Types
+    
+    @enforce_keys []
     defstruct [
-      stream_id: nil,
-      socket_id: nil,
       direction: :bi,
-      data: "",
-      options: [],
     ]
 
     @type t :: %__MODULE__{
-      stream_id: stream_id,
-      socket_id: socket,
       direction: :bi | :uni,
-      data: String.t,
-      options: socket_options,
     }
     
-    @spec set_opts(%__MODULE__.t, opts) :: {:ok, %__MODULE__.t} | {:error, error}
-    when opts: quic_options
+    @spec set_opts(__MODULE__.t, opts) :: {:ok, __MODULE__.t} | {:error, Types.error}
+    when opts: Types.quic_options
     def set_opts(stream_config, _opts) do
       {:ok, stream_config}
     end
