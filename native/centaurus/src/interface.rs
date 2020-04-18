@@ -7,29 +7,17 @@ pub mod convert;
 pub mod notify_impl;
 pub mod runtime_impl;
 pub mod types;
-use crate::error::{ Error };
 use crate::runtime;
-use crate::runtime::{ Event };
 use types::{
     BeamSocket,
     BeamStream,
     Socket,
     SocketInterior,
-    SocketRef,
     Stream,
     StreamInterior,
-    StreamRef,
 };
 
 use rustler::{ Env, Term };
-
-use tokio::sync::mpsc::{
-    unbounded_channel,
-    UnboundedReceiver as AsyncReceiver,
-    UnboundedSender as AsyncSender,
-};
-
-use std::sync::Once;
 
 atoms! {
     ok,
@@ -42,8 +30,10 @@ atoms! {
 }
 
 init!(
-    "Elixir.Centaurus",
+    "Elixir.Centaurus.Nif",
     [
+        api::get_socket_config,
+        api::get_stream_config,
         api::accept,
         api::connect,
         api::close,
@@ -52,7 +42,6 @@ init!(
         api::open_stream,
         api::read,
         api::write,
-        start,
     ],
     load = setup_runtime
 );
@@ -76,24 +65,3 @@ fn setup_runtime(env: Env, _: Term) -> bool {
     true
 }
 
-#[rustler::nif]
-fn start() {
-    handle();
-}
-
-pub fn handle() -> Result<AsyncSender<Event<SocketRef, StreamRef>>, Error> {
-    static mut SENDER : Option<AsyncSender<Event<SocketRef, StreamRef>>> = None;
-    static INIT : Once = Once::new();
-    let sender = unsafe {
-        INIT.call_once(|| {
-            let (sender, receiver) : (AsyncSender<Event<SocketRef, StreamRef>>,
-                                      AsyncReceiver<Event<SocketRef, StreamRef>>) = unbounded_channel();
-            SENDER = Some(sender);
-            std::thread::spawn(move || {
-                runtime::run(receiver);
-            });
-        });
-        SENDER.as_ref().unwrap().clone()
-    };
-    Ok(sender)
-}

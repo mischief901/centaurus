@@ -2,13 +2,13 @@
 /// initializes the handler for the connection.
 
 use crate::error::{ ApplicationError, Error };
-use crate::config::{ Configs, SocketConfig, SocketType, StreamConfig, StreamType };
-use crate::interface;
+use crate::config::{ Configs };
+use crate::interface::{
+    types::{ SocketType, SocketRef, StreamType, StreamRef },
+};
+use crate::runtime;
 use crate::runtime::{ Event, SocketEvent, StreamEvent };
 use crate::state::{ SocketState };
-
-use futures::{ StreamExt, pin_mut, select };
-use futures::future::{ FutureExt };
 
 use quinn::{
     ClientConfigBuilder,
@@ -20,6 +20,7 @@ use quinn::{
 
 use tokio::sync::{
     Mutex,
+    RwLock,
     mpsc::{
         UnboundedSender as AsyncSender,
     },
@@ -27,32 +28,37 @@ use tokio::sync::{
 
 use std::{
     default::{ Default },
-    future::{ Future },
     net::{ SocketAddr },
+    ops::{ Deref },
     sync::{ Arc },
     sync::mpsc::{ channel },
     time::{ Duration },
 };
 
-#[derive(Clone)]
-pub struct Config<S : SocketConfig, T : StreamConfig> {
-    pub socket_config: S,
-    pub stream_config: T,
+pub struct Socket(AsyncSender<SocketEvent>);
+pub struct Stream(AsyncSender<StreamEvent>);
+
+impl Deref for Socket {
+    type Target = AsyncSender<SocketEvent>;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-pub struct Socket<S : SocketConfig, T : StreamConfig>(AsyncSender<SocketEvent<S, T>>);
-pub struct Stream<T : StreamConfig>(AsyncSender<StreamEvent<T>>);
+impl Deref for Stream {
+    type Target = AsyncSender<StreamEvent>;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
-impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {    
-    pub fn open_socket(conn_type: SocketType, socket_config: S, stream_config: T) -> Result<Self, Error> {
+impl Socket {
+    pub fn new(conn_type: SocketType, socket_config: SocketRef, stream_config: StreamRef) -> Result<Self, Error> {
         let (sender, receiver) = channel();
         let mut endpoint = Endpoint::builder();
-        let sock_addr = socket_config.address()?;
-        let configs = Configs {
-            socket_config,
-            stream_config,
-        };
-        let socket_handle = interface::handle()?;
+        let socket_handle = runtime::handle()?;
         let state : SocketState = match conn_type {
             SocketType::Client => {
                 let certs = socket_config.certs()?;
@@ -74,23 +80,26 @@ impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {
                 endpoint.into()
             },
         };
+        let configs = Configs {
+            socket_config: Arc::new(RwLock::new(socket_config)),
+            stream_config: Arc::new(RwLock::new(stream_config)),
+        };
         let event = Event::OpenSocket(sender, conn_type, configs, state);
         socket_handle.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
 
-    fn listen(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error> {
-        let timeout = timeout.map(|time| Duration::from_millis(time));
+    pub fn listen(&self) -> Result<(), Error> {
         let (sender, receiver) = channel();
-        self.send(SocketEvent::Listen(sender, address, timeout))?;
-        receiver.recv()
+        self.send(SocketEvent::Listen(sender))?;
+        receiver.recv()?
     }
     
-    fn accept(&self, timeout: Option<u64>) -> Result<Self, Error> {
+    pub fn accept(&self, timeout: Option<u64>) -> Result<Self, Error> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
         self.send(SocketEvent::Accept(sender, timeout))?;
-        receiver.recv()
+        receiver.recv()?
     }
 /*        let handle = self.conn.enter(async move || {
             // The first await is for connection coming in.
@@ -125,12 +134,12 @@ impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {
         self.state.replace(incoming);
         Ok(new_conn) */
 
-    fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<(), Error> {
+    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<Socket, Error> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
         let event = SocketEvent::Connect(sender, address, timeout);
         self.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
      /*   
         let connection_handle = self.conn.enter(async move || {
@@ -151,11 +160,11 @@ impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {
     }
      */
     
-    fn new_uni_stream(&self) -> Result<Stream<T>, Error> {
+    pub fn new_uni_stream(&self) -> Result<Stream, Error> {
         let (sender, receiver) = channel();
         let event = SocketEvent::OpenUniStream(sender);
         self.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
 /*      let stream = self.state
             .connection()
@@ -165,11 +174,11 @@ impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {
         Ok(Self::Stream::new_uni_stream(self.stream_config.clone(), stream_future))
     }
 */
-    fn new_bi_stream(&self) -> Result<Stream<T>, Error> {
+    pub fn new_bi_stream(&self) -> Result<Stream, Error> {
         let (sender, receiver) = channel();
         let event = SocketEvent::OpenBiStream(sender);
         self.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
 /*        let stream = self.state
             .connection()
@@ -179,37 +188,39 @@ impl <S : SocketConfig, T : StreamConfig> Socket <S, T> {
         Ok(Self::Stream::new_bi_stream(self.stream_config.clone(), stream_future))
     }
 */
-    fn close(self, error_code: ApplicationError, reason: Vec<u8>) {
+    pub fn close(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<(), Error> {
         let event = SocketEvent::Close(error_code, reason);
-        self.send(event).unwrap();
+        self.send(event)?;
+        Ok(())
     }
 }
 
-impl<T : StreamConfig> Stream<T> {
-    fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64, Error> {
+impl Stream {
+    pub fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64, Error> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let safe_buffer = Arc::new(Mutex::new(buffer));
         let (sender, receiver) = channel();
         let event = StreamEvent::Read(sender, safe_buffer.clone(), timeout);
         self.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
 
-    fn write(&self, buffer: Vec<u8>) -> Result<(), Error> {
+    pub fn write(&self, buffer: Vec<u8>) -> Result<(), Error> {
         let (sender, receiver) = channel();
         let event = StreamEvent::Write(sender, buffer);
         self.send(event)?;
-        receiver.recv()
+        receiver.recv()?
     }
 
-    fn close_stream(self, error_code: ApplicationError, reason: Option<Vec<u8>>) {
+    pub fn close_stream(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<(), Error> {
         let event = StreamEvent::CloseStream(error_code, reason);
-        self.send(event);
+        self.send(event)?;
+        Ok(())
     }
 }
 
-impl<S : SocketConfig, T : StreamConfig> From<AsyncSender<SocketEvent<S, T>>> for Socket<S, T> {
-    fn from(sender : AsyncSender<SocketEvent<S, T>>) -> Self {
+impl From<AsyncSender<SocketEvent>> for Socket {
+    fn from(sender : AsyncSender<SocketEvent>) -> Self {
         Self(sender)
     }
 }

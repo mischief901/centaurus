@@ -1,8 +1,10 @@
 //! Provides traits and types for working with the Tokio runtime.
-use crate::config::{ Configs, SocketType, SocketConfig, StreamConfig, StreamType };
+use crate::config::{ Configs, SocketConfig, StreamConfig };
 use crate::conn::{ Socket, Stream };
 use crate::error::{ ApplicationError, Error };
 use crate::state::{ SocketState, StreamState };
+
+use crate::interface::types::{ SocketType, StreamType };
 
 use quinn::{ OpenBi, OpenUni };
 
@@ -24,14 +26,10 @@ use std::{
     future::{ Future },
     marker::{ PhantomData },
     net::{ SocketAddr },
-    sync::{ Arc },
+    sync::{ Arc, Once },
     sync::mpsc::{ Sender },
     time::{ Duration },
 };
-
-lazy_static! {
-    static ref POOL_HANDLE : Option<JoinHandle<()>> = None;
-}
 
 /// Starts a new tokio runtime.
 /// The runtime is a threaded pool named "centaurus-pool".
@@ -44,53 +42,67 @@ fn new_pool() -> runtime::Runtime {
         .unwrap()
 }
 
-
 // The main tokio runtime.
 struct RuntimeInternal(runtime::Runtime);
 
 // State of the socket on the runtime.
-struct SocketRuntime<S : SocketConfig, T : StreamConfig> {
-    receiver: AsyncReceiver<SocketEvent<S, T>>,
-    configs: Configs<S, T>,
+struct SocketRuntime {
+    receiver: AsyncReceiver<SocketEvent>,
+    configs: Configs,
     socket_state: SocketState,
 }
 
 // State of the stream on the runtime.
-struct StreamRuntime<S : SocketConfig, T : StreamConfig> {
-    receiver: AsyncReceiver<StreamEvent<T>>,
-    configs: Configs<S, T>,
+struct StreamRuntime {
+    receiver: AsyncReceiver<StreamEvent>,
+    configs: Configs,
     stream_state: StreamState,
 }
 
+pub fn handle() -> Result<AsyncSender<Event>, Error> {
+    static mut SENDER : Option<AsyncSender<Event>> = None;
+    static INIT : Once = Once::new();
+    let sender = unsafe {
+        INIT.call_once(|| {
+            let (sender, receiver) : (AsyncSender<Event>,
+                                      AsyncReceiver<Event>) = unbounded_channel();
+            SENDER = Some(sender);
+            std::thread::spawn(move || {
+                run(receiver);
+            });
+        });
+        SENDER.as_ref().unwrap().clone()
+    };
+    Ok(sender)
+}
     
-pub enum Event<S : SocketConfig, T : StreamConfig> {
-    OpenSocket(Sender<Result<Socket<S, T>, Error>>, SocketType, Configs<S, T>, SocketState),
+pub enum Event {
+    OpenSocket(Sender<Result<Socket, Error>>, SocketType, Configs, SocketState),
 }
 
 // Events the socket knows how to handle.
-pub enum SocketEvent<S : SocketConfig, T : StreamConfig> {
-    Accept(Sender<Result<Socket<S, T>, Error>>, Option<Duration>),
+pub enum SocketEvent {
+    Accept(Sender<Result<Socket, Error>>, Option<Duration>),
     Close(ApplicationError, Option<Vec<u8>>),
-    Connect(Sender<Result<Socket<S, T>, Error>>, SocketAddr, Option<Duration>),
-    Listen(Sender<Result<(), Error>>, SocketAddr),
-    OpenBiStream(Sender<Result<Stream<T>, Error>>),
-    OpenUniStream(Sender<Result<Stream<T>, Error>>),
+    Connect(Sender<Result<Socket, Error>>, SocketAddr, Option<Duration>),
+    Listen(Sender<Result<(), Error>>),
+    OpenBiStream(Sender<Result<Stream, Error>>),
+    OpenUniStream(Sender<Result<Stream, Error>>),
 }
 
 // Events the stream knows how to handle.
-pub enum StreamEvent<T> {
+pub enum StreamEvent {
     CloseStream(ApplicationError, Option<Vec<u8>>),
     Read(Sender<Result<u64, Error>>, Arc<Mutex<Vec<u8>>>, Option<Duration>),
     Write(Sender<Result<(), Error>>, Vec<u8>),
-    Blank(PhantomData<T>),
 }
 
-pub fn run<S : SocketConfig + 'static, T : StreamConfig + 'static>(mut pool : AsyncReceiver<Event<S, T>>) {
-    let rt = new_pool();
+pub fn run(mut pool : AsyncReceiver<Event>) {
+    let mut rt = new_pool();
     rt.block_on(async {
-        loop {
-            tokio::join!{
-                tokio::spawn(async move {
+        let result = tokio::join!{
+            tokio::spawn(async move {
+                loop {
                     match pool.recv().await.unwrap() {
                         Event::OpenSocket(responder, conn_type, configs, socket_state) => {
                             let (sender, receiver) = unbounded_channel();
@@ -103,33 +115,31 @@ pub fn run<S : SocketConfig + 'static, T : StreamConfig + 'static>(mut pool : As
                             responder.send(Ok(sender.into())).unwrap();
                             // Spawn a new task to handle the socket.
                             tokio::spawn(async move {
-                                run_socket(socket);
+                                run_socket(socket).await;
                             });
                         }
                     }
-                })
-            };
-        }
+                }
+            })
+        };
+        result.0.unwrap();
     });
 }
 
-
-async fn run_socket<S, T>(mut socket: SocketRuntime<S, T>)
-where S : SocketConfig, T : StreamConfig {
+async fn run_socket(mut socket: SocketRuntime) {
     loop {
         match socket.receiver.recv().await.unwrap() {
             SocketEvent::Accept(response, timeout) => {},
             SocketEvent::Close(application_error, reason) => {},
             SocketEvent::Connect(response, sock_addr, timeout) => {},
-            SocketEvent::Listen(response, sock_addr) => {},
+            SocketEvent::Listen(response) => {},
             SocketEvent::OpenBiStream(response) => {},
             SocketEvent::OpenUniStream(response) => {},
         }
     }
 }
 
-async fn run_stream<S, T>(mut stream: StreamRuntime<S, T>)
-where S : SocketConfig, T : StreamConfig {
+async fn run_stream(mut stream: StreamRuntime) {
     loop {
         match stream.receiver.recv().await.unwrap() {
             StreamEvent::CloseStream(application_error, reason) => {},

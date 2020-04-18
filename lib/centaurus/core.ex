@@ -5,63 +5,70 @@ defmodule Centaurus.Core do
   See each function for details.
   """
 
-  alias Nif
+  alias Centaurus.Nif
   alias Centaurus.Types
-  alias Types.Common, as: CommonType
-  alias Types.Internal, as: Internal
-  alias Types.QuicSocket
-  alias QuicSocket.QuicStream
+  alias Types.SocketConfig
+  alias Types.StreamConfig
 
+  @doc """
+  Creates a socket configuration from the supplied options.
+  """
+  @spec socket_config(Types.quic_options) :: {:ok, SocketConfig.t} | {:error, Types.error}
+  def socket_config(quic_options) do
+    %SocketConfig{}
+    |> SocketConfig.set_opts(quic_options)
+  end
+
+  @doc """
+  Creates a stream configuration from the supplied options.
+  """
+  @spec stream_config(Types.quic_options) :: {:ok, StreamConfig.t} | {:error, Types.error}
+  def stream_config(quic_options) do
+    %StreamConfig{}
+    |> StreamConfig.set_opts(quic_options)
+  end
+  
   @doc """
   Opens a Quic socket to listen for incoming connections.
 
   If port == 0, an available port number is assigned.
   """
-  @spec listen(port, opts) :: {:ok, quic_socket} | {:error, error}
-  when port: CommonType.port_number,
-    opts: CommonType.socket_options,
-    quic_socket: QuicSocket.t,
-    error: CommonType.error
-  def listen(port, opts \\ [])
-  def listen(port, opts) do
-    %QuicSocket{
-      port: port,
-      options: opts
-    }
-    |> Nif.listen_nif
+  @spec listen(socket_config, stream_config) :: {:ok, Types.socket} | {:error, error}
+  when socket_config: SocketConfig.t,
+    stream_config: StreamConfig.t,
+    error: Types.error
+  def listen(socket_config, stream_config)
+  def listen(socket_config, stream_config) do
+    Nif.listen(socket_config, stream_config)
   end
 
   @doc """
   Accepts a single incoming connection and returns a QuicSocket for the new connection.
   """
-  @spec accept(quic_socket, timeout) :: {:ok, socket} | {:error, error}
-  when quic_socket: QuicSocket.t,
-    timeout: timeout,
-    socket: QuicSocket.t,
-    error: CommonType.error
-  def accept(quic_socket, timeout \\ :infinity)
-  def accept(quic_socket, timeout) do
-    Nif.accept_nif(quic_socket, timeout)
+  @spec accept(Types.socket, timeout) :: {:ok, Types.socket} | {:error, error}
+  when timeout: timeout,
+    error: Types.error
+  def accept(socket, timeout \\ :infinity)
+  def accept(socket, timeout) do
+    Nif.accept(socket, timeout)
   end
 
   @doc """
   Opens a connection to the specified server. Returns a QuicSocket on success.
   """
-  @spec connect(port, address, opts, timeout) :: {:ok, quic_socket} | {:error, error}
-  when port: CommonType.port_number,
-    address: CommonType.ip_addr,
-    opts: CommonType.socket_options,
+  @spec connect(socket_config, stream_config, port, address, opts, timeout) :: {:ok, Types.socket} | {:error, error}
+  when port: Types.port_number,
+    address: Types.ip_addr,
+    opts: Types.socket_options,
     timeout: timeout,
-    quic_socket: QuicSocket.t,
-    error: CommonType.error
-  def connect(port, address, opts, timeout \\ :infinity)
-  def connect(port, address, opts, timeout) do
-    %QuicSocket{
-      port: port,
-      ip_addr: address,
-      options: opts
-    }
-    |> Nif.connect_nif(timeout)
+    socket_config: SocketConfig.t,
+    stream_config: StreamConfig.t,
+    error: Types.error
+  def connect(socket_config, stream_config, port, address, opts, timeout \\ :infinity)
+  def connect(socket_config, stream_config, port, address, _opts, timeout) do
+    address = :inet.ntoa(address) |> to_string
+    port = to_string(port)
+    Nif.connect(socket_config, stream_config, address <> ":" <> port, timeout)
   end
 
   @doc """
@@ -69,13 +76,11 @@ defmodule Centaurus.Core do
   Direction can either be :uni for unidirectional streams (write only) or
   :bi for bidirectional streams (read and write).
   """
-  @spec open_stream(quic_socket, direction) :: {:ok, stream} | {:error, error}
-  when quic_socket: QuicSocket.t,
-    direction: :bi | :uni,
-    error: CommonType.error,
-    stream: QuicStream.t
-  def open_stream(quic_socket) do
-    Nif.open_stream(quic_socket)
+  @spec open_stream(Types.socket, direction) :: {:ok, Types.stream} | {:error, error}
+  when direction: :bi | :uni,
+    error: Types.error
+  def open_stream(socket, direction) do
+    Nif.open_stream(socket, direction)
   end
 
   @doc """
@@ -85,37 +90,36 @@ defmodule Centaurus.Core do
   Valid error codes are:
   none - No error, communication is complete.
   """
-  @spec close_stream(stream, error_code) :: :ok
-  when stream: QuicStream.t,
-    error_code: CommonType.error_code
-  def close_stream(stream, error_code \\ :none)
-  def close_stream(stream, error_code) do
-    Nif.close_stream(stream, error_code)
+  @spec close_stream(Types.stream, error_code, reason) :: :ok
+  when error_code: Types.error_code,
+    reason: String.t
+  def close_stream(stream, error_code \\ :none, reason \\ "")
+  def close_stream(stream, error_code, reason) do
+    Nif.close_stream(stream, error_code, reason)
   end
 
   @doc """
   Reads any available data from the stream.
   Timeout defaults to infinity.
   """
-  @spec read(stream, timeout) :: {:ok, data} | {:error, error}
-  when stream: QuicStream.t,
+  @spec read(Types.stream, amount, timeout) :: {:ok, data} | {:error, error}
+  when amount: non_neg_integer(),
     timeout: timeout,
-    data: Internal.data,
-    error: CommonType.error
-  def read(stream, timeout \\ :infinity)
-  def read(stream, timeout) do
-    Nif.read_nif(stream, timeout)
+    data: String.t,
+    error: Types.error
+  def read(stream, amount, timeout \\ :infinity)
+  def read(stream, amount, timeout) do
+    Nif.read(stream, amount, timeout)
   end
 
   @doc """
   Writes the data to the stream.
   """
-  @spec write(stream, data) :: :ok | {:error, error}
-  when stream: QuicStream.t,
-    data: Internal.data,
-    error: CommonType.error
+  @spec write(Types.stream, data) :: :ok | {:error, error}
+  when data: String.t,
+    error: Types.error
   def write(stream, data) do
-    Nif.write_nif(stream, data)
+    Nif.write(stream, data)
   end
 
   @doc """
@@ -124,35 +128,11 @@ defmodule Centaurus.Core do
   Valid error codes are:
   none - No error, communication is complete.
   """
-  @spec close(socket, error_code) :: :ok
-  when socket: QuicSocket.t,
-    error_code: CommonType.error_code
-  def close(socket, error_code \\ :none)
-  def close(socket, error_code) do
-    Nif.close_nif(socket)
+  @spec close(Types.socket, error_code, reason) :: :ok
+  when error_code: Types.error_code,
+    reason: String.t
+  def close(socket, error_code \\ :none, reason \\ "")
+  def close(socket, error_code, reason) do
+    Nif.close(socket, error_code, reason)
   end
-
-  defmodule Nif do
-    @moduledoc false
-
-    @nif_error :erlang.nif_error(:nif_not_loaded)
-    
-    def accept_nif(_quic_socket, _timeout), do: @nif_error
-
-    def connect_nif(_quic_socket, _timeout), do: @nif_error
-
-    def close_nif(_quic_socket), do: @nif_error
-
-    def close_stream_nif(_quic_stream), do: @nif_error
-
-    def listen_nif(_quic_socket), do: @nif_error
-
-    def open_stream_nif(_quic_socket, _direction), do: @nif_error
-
-    def read_nif(_quic_stream, _timeout), do: @nif_error
-
-    def write_nif(_quic_stream, _data), do: @nif_error
-    
-  end
-  
 end

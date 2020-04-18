@@ -40,6 +40,8 @@ pub struct StreamState(Arc<Mutex<StreamStateInternal>>);
 
 #[derive(Default)]
 pub struct StreamStateInternal {
+    bi_future: Option<OpenBi>,
+    uni_future: Option<OpenUni>,
     pub recv: Option<RecvStream>,
     pub send: Option<SendStream>,
 }
@@ -61,7 +63,7 @@ impl From<EndpointBuilder> for SocketState {
 impl From<EndpointBuilder> for SocketStateInternal {
     fn from(endpoint_builder: EndpointBuilder) -> Self {
         SocketStateInternal {
-            endpoint_builder,
+            endpoint_builder: Some(endpoint_builder),
             ..Default::default()
         }
     }

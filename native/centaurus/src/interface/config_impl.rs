@@ -2,13 +2,10 @@
 
 use super::types::{
     BeamSocket,
-    BeamStream,
     SocketAddr,
     SocketRef,
-    StreamRef,
 };
 
-use crate::config::{ SocketConfig, StreamConfig };
 use crate::error::{ Error };
 
 use quinn::{
@@ -16,41 +13,31 @@ use quinn::{
     CertificateChain,
 };
 
-impl SocketConfig for SocketRef {
-    fn address(&self) -> Result<std::net::SocketAddr, Error> {
-        self.read()
-            .map_or(Err(Error::InternalError),
-                    |interface| interface.address())
+impl SocketRef {
+    pub fn address(&self) -> Result<std::net::SocketAddr, Error> {
+        self.0.address()
     }
 
-    fn certs(&self) -> Result<Certificate, Error> {
-        self.read()
-            .map_or(Err(Error::InternalError),
-                    |interface| interface.certs())
+    pub fn certs(&self) -> Result<Certificate, Error> {
+        self.0.certs()
     }
 
-    fn cert_chain(&self) -> Result<CertificateChain, Error> {
-        self.read()
-            .map_or(Err(Error::InternalError),
-                    |interface| interface.cert_chain())
+    pub fn cert_chain(&self) -> Result<CertificateChain, Error> {
+        self.0.cert_chain()
     }
 
-    fn private_key(&self) -> Result<quinn::PrivateKey, Error> {
-        self.read()
-            .map_or(Err(Error::InternalError),
-                    |interface| interface.private_key())
+    pub fn private_key(&self) -> Result<quinn::PrivateKey, Error> {
+        self.0.private_key()
     }
     
-    fn server_name(&self) -> Result<String, Error> {
-        self.read()
-            .map_or(Err(Error::InternalError),
-                    |interface| interface.server_name())
+    pub fn server_name(&self) -> Result<String, Error> {
+        self.0.server_name()
     }
 }
 
-impl SocketConfig for BeamSocket {
+impl BeamSocket {
     fn address(&self) -> Result<std::net::SocketAddr, Error> {
-        self.socket_addr
+        self.bind_address
             .map(|SocketAddr(socket)| socket)
             .to_owned()
             .ok_or(Error::InternalError)
@@ -85,11 +72,3 @@ impl SocketConfig for BeamSocket {
     }
 }
 
-impl StreamConfig for StreamRef {
-
-}
-
-
-impl StreamConfig for BeamStream {
-
-}

@@ -6,12 +6,12 @@ use crate::error::{ Error };
 use crate::interface::types::{ SocketRef, StreamRef };
 use crate::notify::{ Notify };
 
-impl Notify<StreamRef> for SocketRef {
-    fn peer_bi_stream(&self, stream: Stream<StreamRef>) -> Result<(), Error> {
+impl Notify for SocketRef {
+    fn peer_bi_stream(&self, stream: Stream) -> Result<(), Error> {
         unimplemented!();
     }
     
-    fn peer_uni_stream(&self, stream: Stream<StreamRef>) -> Result<(), Error> {
+    fn peer_uni_stream(&self, stream: Stream) -> Result<(), Error> {
         unimplemented!();
     }
 }

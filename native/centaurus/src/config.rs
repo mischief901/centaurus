@@ -1,24 +1,18 @@
 /// Provides a trait for setting up a connection.
 use crate::error::{ Error };
+use crate::interface::types::{ SocketRef, StreamRef };
+
+use tokio::sync::{ RwLock };
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use quinn::{ Certificate, CertificateChain, PrivateKey };
 
-pub enum SocketType {
-    Server,
-    Client,
-}
-
-pub enum StreamType {
-    Uni,
-    Bi,
-}
-
 #[derive(Clone)]
-pub struct Configs<S : SocketConfig, T : StreamConfig> {
-    pub socket_config: S,
-    pub stream_config: T,
+pub struct Configs {
+    pub socket_config: Arc<RwLock<SocketRef>>,
+    pub stream_config: Arc<RwLock<StreamRef>>,
 }
 
 pub trait SocketConfig : Send + Sync {
