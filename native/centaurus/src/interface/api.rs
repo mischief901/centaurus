@@ -1,5 +1,5 @@
 //! The Elixir entrypoint.
-
+use super::types;
 use super::types::{
     BeamSocket,
     BeamStream,
@@ -14,6 +14,18 @@ use crate::conn;
 use crate::error::{ ApplicationError, Error };
 
 use std::convert::TryInto;
+
+#[rustler::nif]
+fn get_socket_config() -> Result<BeamSocket, Error> {
+    let socket = types::test_socket();
+    Ok(socket)
+}
+
+#[rustler::nif]
+fn get_stream_config() -> Result<BeamStream, Error> {
+    let stream = types::test_stream();
+    Ok(stream)
+}
 
 /// listen(quic_socket)
 #[rustler::nif]

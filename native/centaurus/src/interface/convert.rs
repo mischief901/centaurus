@@ -15,7 +15,7 @@ impl<'a> Decoder<'a> for SocketAddr {
         let raw : &str = Decoder::decode(term)?;
         let sock_addr : std::net::SocketAddr = raw
             .parse()
-            .or(Err(rustler::Error::BadArg))?;
+            .or(Err(rustler::Error::Term(Box::new("Invalid Socket Address"))))?;
         Ok(SocketAddr(sock_addr))
     }
 }
@@ -29,7 +29,8 @@ impl<'a> Encoder for SocketAddr {
 
 impl<'a> Decoder<'a> for Certificates {
     fn decode(term : Term<'a>) -> Result<Self, rustler::Error> {
-        let raw : &str = Decoder::decode(term)?;
+        let raw : &str = Decoder::decode(term)
+            .or(Err(rustler::Error::Term(Box::new("Invalid Certificate Path"))))?;
         let mut path = PathBuf::new();
         path.push(raw);
         Ok(Certificates(path))
@@ -45,7 +46,8 @@ impl<'a> Encoder for Certificates {
 
 impl<'a> Decoder<'a> for PrivateKey {
     fn decode(term : Term<'a>) -> Result<Self, rustler::Error> {
-        let raw : &str = Decoder::decode(term)?;
+        let raw : &str = Decoder::decode(term)
+            .or(Err(rustler::Error::Term(Box::new("Invalid Private Key Path"))))?;
         let mut path = PathBuf::new();
         path.push(raw);
         Ok(PrivateKey(path))

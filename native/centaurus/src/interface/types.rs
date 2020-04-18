@@ -39,10 +39,20 @@ pub struct BeamSocket {
     pub socket_pid: Option<QuicSocket>,
     pub bind_address: Option<SocketAddr>,
     pub server_name: String,
-    pub socket_owner: ConnectionOwner,
     pub options: Vec<QuicOptions>,
     pub private_key: Option<PrivateKey>,
     pub certificates: Option<Certificates>,
+}
+
+pub fn test_socket() -> BeamSocket {
+    BeamSocket {
+        socket_pid: None,
+        bind_address: Some(SocketAddr("127.0.0.1:0".parse().unwrap())),
+        server_name: "localhost".to_string(),
+        options: vec!(),
+        private_key: Some(PrivateKey(PathBuf::from("/"))),
+        certificates: Some(Certificates(PathBuf::from("/")))
+    }
 }
 
 #[derive(NifStruct)]
@@ -52,8 +62,16 @@ pub struct BeamStream {
     pub stream_pid: Option<QuicStream>,
     pub socket_pid: Option<QuicSocket>,
     pub stream_type: StreamType,
-    pub stream_owner: ConnectionOwner,
     pub options: Vec<QuicOptions>,
+}
+
+pub fn test_stream() -> BeamStream {
+    BeamStream {
+        stream_pid: None,
+        socket_pid: None,
+        stream_type: StreamType::Bi,
+        options: vec!()
+    }
 }
 
 #[derive(NifUnitEnum)]

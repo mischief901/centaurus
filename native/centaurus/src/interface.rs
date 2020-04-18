@@ -32,6 +32,8 @@ atoms! {
 init!(
     "Elixir.Centaurus.Nif",
     [
+        api::get_socket_config,
+        api::get_stream_config,
         api::accept,
         api::connect,
         api::close,
