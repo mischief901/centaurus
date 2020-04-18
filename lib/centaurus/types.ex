@@ -24,7 +24,7 @@ defmodule Centaurus.Types do
   """
   @type peer_port :: port_number
 
-  @type ip_addr :: :inet.ip_address
+  @type ip_addr :: :inet.ip_addresss
   @type port_number :: :inet.port_number
 
   @typedoc """
@@ -66,10 +66,9 @@ defmodule Centaurus.Types do
     # TODO: Add certificates and server_name to enforced keys.
     @enforce_keys []
     defstruct [
-      bind_addr: nil,
-      bind_port: nil,
+      bind_address: "0.0.0.0:0",
       server_name: "",
-      server_key: "",
+      private_key: nil,
       options: [],
       certificates: nil
     ]
@@ -77,9 +76,9 @@ defmodule Centaurus.Types do
     alias Centaurus.Types
     
     @type t :: %__MODULE__{
-      bind_addr: Types.ip_addr,
-      bind_port: Types.port_number,
+      bind_address: String.t,
       server_name: String.t,
+      private_key: Path.t,
       options: Types.socket_options,
       certificates: Path.t
     }

@@ -37,7 +37,7 @@ impl SocketRef {
 
 impl BeamSocket {
     fn address(&self) -> Result<std::net::SocketAddr, Error> {
-        self.socket_addr
+        self.bind_address
             .map(|SocketAddr(socket)| socket)
             .to_owned()
             .ok_or(Error::InternalError)

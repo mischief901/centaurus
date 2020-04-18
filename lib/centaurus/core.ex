@@ -68,7 +68,7 @@ defmodule Centaurus.Core do
   def connect(socket_config, stream_config, port, address, _opts, timeout) do
     address = :inet.ntoa(address) |> to_string
     port = to_string(port)
-    Nif.connect(socket_config, stream_config, address <> port, timeout)
+    Nif.connect(socket_config, stream_config, address <> ":" <> port, timeout)
   end
 
   @doc """

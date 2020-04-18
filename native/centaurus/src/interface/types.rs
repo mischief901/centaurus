@@ -33,11 +33,11 @@ pub struct PrivateKey(pub PathBuf);
 pub struct Certificates(pub PathBuf);
 
 #[derive(NifStruct)]
-#[module="QuicSocket"]
+#[module="Centaurus.Types.SocketConfig"]
 #[rustler(encode, decode)]
 pub struct BeamSocket {
     pub socket_pid: Option<QuicSocket>,
-    pub socket_addr: Option<SocketAddr>,
+    pub bind_address: Option<SocketAddr>,
     pub server_name: String,
     pub socket_owner: ConnectionOwner,
     pub options: Vec<QuicOptions>,
@@ -46,7 +46,7 @@ pub struct BeamSocket {
 }
 
 #[derive(NifStruct)]
-#[module="QuicStream"]
+#[module="Centaurus.Types.StreamConfig"]
 #[rustler(encode, decode)]
 pub struct BeamStream {
     pub stream_pid: Option<QuicStream>,
