@@ -58,6 +58,13 @@ pub struct BeamStream {
 
 #[derive(NifUnitEnum)]
 #[rustler(encode, decode)]
+pub enum SocketType {
+    Server,
+    Client,
+}
+
+#[derive(NifUnitEnum)]
+#[rustler(encode, decode)]
 pub enum ConnectionOwner {
     Peer,
     Host,
@@ -83,27 +90,23 @@ pub struct QuicSocket(pub LocalPid);
 /// performed on these data structures. They contain data used to setup the connection or the
 /// information necessary to send received messages or errors to the owners (PIDs).
 #[derive(Clone)]
-pub struct SocketRef(pub Arc<RwLock<BeamSocket>>);
+pub struct SocketRef(pub Arc<BeamSocket>);
 #[derive(Clone)]
-pub struct StreamRef(pub Arc<RwLock<BeamStream>>);
-/*
-// type aliases to make things easier to read.
-type StreamConn = conn::Stream<StreamRef>;
-type SocketConn = conn::Socket<SocketRef, StreamRef>;
-*/
+pub struct StreamRef(pub Arc<BeamStream>);
+
 /// The Socket and Stream newtype structs are used to create a Rust representation
 /// of the connection that Elixir can use to identify the connection in the future.
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 #[derive(Clone)]
 pub struct Socket(pub ResourceArc<SocketInterior>);
-pub struct SocketInterior(conn::Socket<SocketRef, StreamRef>);
+pub struct SocketInterior(conn::Socket);
 
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 #[derive(Clone)]
 pub struct Stream(pub ResourceArc<StreamInterior>);
-pub struct StreamInterior(conn::Stream<StreamRef>);
+pub struct StreamInterior(conn::Stream);
 
 impl Deref for Socket {
     type Target = SocketInterior;
@@ -114,7 +117,7 @@ impl Deref for Socket {
 }
 
 impl Deref for SocketInterior {
-    type Target = conn::Socket<SocketRef, StreamRef>;
+    type Target = conn::Socket;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -122,7 +125,7 @@ impl Deref for SocketInterior {
 }
 
 impl Deref for SocketRef {
-    type Target = RwLock<BeamSocket>;
+    type Target = BeamSocket;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -138,7 +141,7 @@ impl Deref for Stream {
 }
 
 impl Deref for StreamInterior {
-    type Target = conn::Stream<StreamRef>;
+    type Target = conn::Stream;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -146,7 +149,7 @@ impl Deref for StreamInterior {
 }
 
 impl Deref for StreamRef {
-    type Target = RwLock<BeamStream>;
+    type Target = BeamStream;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -155,13 +158,13 @@ impl Deref for StreamRef {
 
 impl Into<SocketRef> for BeamSocket {
     fn into(self) -> SocketRef {
-        SocketRef(Arc::new(RwLock::new(self)))
+        SocketRef(Arc::new(self))
     }
 }
 
 impl Into<StreamRef> for BeamStream {
     fn into(self) -> StreamRef {
-        StreamRef(Arc::new(RwLock::new(self)))
+        StreamRef(Arc::new(self))
     }
 }
 
@@ -193,29 +196,29 @@ impl StreamInterior {
         StreamInterior(stream)
     }
 }
- 
+*/ 
 
-impl From<SocketConn> for Socket {
-    fn from(socket_int : SocketConn) -> Self {
+impl From<conn::Socket> for Socket {
+    fn from(socket_int : conn::Socket) -> Self {
         Socket(ResourceArc::new(socket_int.into()))
     }
 }
 
-impl From<SocketConn> for SocketInterior {
-    fn from(socket_int : SocketConn) -> Self {
+impl From<conn::Socket> for SocketInterior {
+    fn from(socket_int : conn::Socket) -> Self {
         SocketInterior(socket_int)
     }
 }
 
-impl From<StreamConn> for Stream {
-    fn from(stream_int : StreamConn) -> Self {
+impl From<conn::Stream> for Stream {
+    fn from(stream_int : conn::Stream) -> Self {
         Stream(ResourceArc::new(stream_int.into()))
     }
 }
 
-impl From<StreamConn> for StreamInterior {
-    fn from(stream_int : StreamConn) -> Self {
-        StreamInterior(Mutex::new(stream_int))
+impl From<conn::Stream> for StreamInterior {
+    fn from(stream_int : conn::Stream) -> Self {
+        StreamInterior(stream_int)
     }
 }
- */
+

@@ -1,4 +1,5 @@
 /// This combines the various errors of quinn into a single Error enum.
+use crate::runtime;
 
 use quinn::{
     ConnectError,
@@ -9,9 +10,12 @@ use quinn::{
 
 use rustler::{ NifUnitEnum };
 use rustls;
+use tokio::sync::mpsc::error::{ SendError };
 use tokio::task::{ JoinError };
 use tokio::time::{ Elapsed };
 use webpki;
+
+use std::sync::mpsc::RecvError;
 
 #[derive(Debug, NifUnitEnum)]
 pub enum Error {
@@ -72,6 +76,30 @@ impl From<Elapsed> for Error {
 
 impl From<JoinError> for Error {
     fn from(_ : JoinError) -> Self {
+        Self::Error
+    }
+}
+
+impl From<SendError<runtime::Event>> for Error {
+    fn from(_ : SendError<runtime::Event>) -> Self {
+        Self::Error
+    }
+}
+
+impl From<SendError<runtime::SocketEvent>> for Error {
+    fn from(_ : SendError<runtime::SocketEvent>) -> Self {
+        Self::Error
+    }
+}
+
+impl From<SendError<runtime::StreamEvent>> for Error {
+    fn from(_ : SendError<runtime::StreamEvent>) -> Self {
+        Self::Error
+    }
+}
+
+impl From<RecvError> for Error {
+    fn from(_ : RecvError) -> Self {
         Self::Error
     }
 }
