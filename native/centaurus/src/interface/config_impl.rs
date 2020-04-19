@@ -6,7 +6,7 @@ use super::types::{
     SocketRef,
 };
 
-use crate::error::{ Error };
+use anyhow::{ Context, Result };
 
 use quinn::{
     Certificate,
@@ -14,60 +14,60 @@ use quinn::{
 };
 
 impl SocketRef {
-    pub fn address(&self) -> Result<std::net::SocketAddr, Error> {
+    pub fn address(&self) -> Result<std::net::SocketAddr> {
         self.0.address()
     }
 
-    pub fn certs(&self) -> Result<Certificate, Error> {
+    pub fn certs(&self) -> Result<Certificate> {
         self.0.certs()
     }
 
-    pub fn cert_chain(&self) -> Result<CertificateChain, Error> {
+    pub fn cert_chain(&self) -> Result<CertificateChain> {
         self.0.cert_chain()
     }
 
-    pub fn private_key(&self) -> Result<quinn::PrivateKey, Error> {
+    pub fn private_key(&self) -> Result<quinn::PrivateKey> {
         self.0.private_key()
     }
     
-    pub fn server_name(&self) -> Result<String, Error> {
+    pub fn server_name(&self) -> Result<String> {
         self.0.server_name()
     }
 }
 
 impl BeamSocket {
-    fn address(&self) -> Result<std::net::SocketAddr, Error> {
+    fn address(&self) -> Result<std::net::SocketAddr> {
         self.bind_address
             .map(|SocketAddr(socket)| socket)
             .to_owned()
-            .ok_or(Error::InternalError)
+            .context("Local Socket Address is required.")
     }
 
-    fn certs(&self) -> Result<Certificate, Error> {
+    fn certs(&self) -> Result<Certificate> {
         self.certificates
             .as_ref()
-            .ok_or(Error::Error)?
+            .unwrap()
             .as_cert()
-            .ok_or(Error::Error)
+            .context("Error reading Certificate")
     }
 
-    fn cert_chain(&self) -> Result<CertificateChain, Error> {
+    fn cert_chain(&self) -> Result<CertificateChain> {
         self.certificates
             .as_ref()
-            .ok_or(Error::Error)?
+            .unwrap()
             .as_chain()
-            .ok_or(Error::Error)
+            .context("Error reading Certificate Chain.")
     }
 
-    fn private_key(&self) -> Result<quinn::PrivateKey, Error> {
+    fn private_key(&self) -> Result<quinn::PrivateKey> {
         self.private_key
             .as_ref()
-            .ok_or(Error::Error)?
+            .unwrap()
             .as_key()
-            .ok_or(Error::Error)
+            .context("Error reading Private Key.")
     }
     
-    fn server_name(&self) -> Result<String, Error> {
+    fn server_name(&self) -> Result<String> {
         Ok(self.server_name.clone())
     }
 }

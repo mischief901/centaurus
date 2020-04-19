@@ -4,10 +4,8 @@ pub mod api;
 pub mod certs;
 pub mod config_impl;
 pub mod convert;
-pub mod notify_impl;
-pub mod runtime_impl;
 pub mod types;
-use crate::runtime;
+mod test;
 use types::{
     BeamSocket,
     BeamStream,
@@ -32,8 +30,30 @@ atoms! {
 init!(
     "Elixir.Centaurus.Nif",
     [
-        api::get_socket_config,
-        api::get_stream_config,
+        test::encode_socket_config,
+        test::encode_stream_config,
+        test::decode_socket_config,
+        test::decode_stream_config,
+        test::encode_socket,
+        test::encode_stream,
+        test::decode_socket,
+        test::decode_stream,
+        test::encode_application_error,
+        test::decode_application_error,
+        test::encode_certificates,
+        test::decode_certificates,
+        test::encode_private_key,
+        test::decode_private_key,
+        test::encode_socket_addr,
+        test::decode_socket_addr,
+        test::encode_stream_type,
+        test::decode_stream_type,
+        test::encode_socket_type,
+        test::decode_socket_type,
+        test::encode_quic_opts,
+        test::decode_quic_opts,
+        test::encode_quic_socket,
+        test::encode_quic_stream,
         api::accept,
         api::connect,
         api::close,

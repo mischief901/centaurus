@@ -4,11 +4,8 @@ use crate::options::{ QuicOptions };
 
 use rustler::{ LocalPid, ResourceArc, NifStruct, NifTuple, NifUnitEnum };
 
-use tokio::{
-    sync::{ RwLock },
-};
-
 use std::{
+    fmt,
     ops::{ Deref },
     path::{ PathBuf },
     sync::{ Arc },
@@ -35,6 +32,7 @@ pub struct Certificates(pub PathBuf);
 #[derive(NifStruct)]
 #[module="Centaurus.Types.SocketConfig"]
 #[rustler(encode, decode)]
+#[derive(Debug)]
 pub struct BeamSocket {
     pub socket_pid: Option<QuicSocket>,
     pub bind_address: Option<SocketAddr>,
@@ -44,38 +42,19 @@ pub struct BeamSocket {
     pub certificates: Option<Certificates>,
 }
 
-pub fn test_socket() -> BeamSocket {
-    BeamSocket {
-        socket_pid: None,
-        bind_address: Some(SocketAddr("127.0.0.1:0".parse().unwrap())),
-        server_name: "localhost".to_string(),
-        options: vec!(),
-        private_key: Some(PrivateKey(PathBuf::from("/"))),
-        certificates: Some(Certificates(PathBuf::from("/")))
-    }
-}
-
 #[derive(NifStruct)]
 #[module="Centaurus.Types.StreamConfig"]
 #[rustler(encode, decode)]
+#[derive(Debug)]
 pub struct BeamStream {
     pub stream_pid: Option<QuicStream>,
-    pub socket_pid: Option<QuicSocket>,
     pub stream_type: StreamType,
     pub options: Vec<QuicOptions>,
 }
 
-pub fn test_stream() -> BeamStream {
-    BeamStream {
-        stream_pid: None,
-        socket_pid: None,
-        stream_type: StreamType::Bi,
-        options: vec!()
-    }
-}
-
 #[derive(NifUnitEnum)]
 #[rustler(encode, decode)]
+#[derive(Debug)]
 pub enum SocketType {
     Server,
     Client,
@@ -83,6 +62,7 @@ pub enum SocketType {
 
 #[derive(NifUnitEnum)]
 #[rustler(encode, decode)]
+#[derive(Debug)]
 pub enum ConnectionOwner {
     Peer,
     Host,
@@ -90,26 +70,56 @@ pub enum ConnectionOwner {
 
 #[derive(NifUnitEnum)]
 #[rustler(encode, decode)]
+#[derive(Debug)]
 pub enum StreamType {
     Bi,
     Uni,
+}
+
+#[derive(Debug)]
+pub struct Error(pub anyhow::Error);
+
+impl From<anyhow::Error> for Error {
+    fn from(error: anyhow::Error) -> Self {
+        Error(error)
+    }
+}
+
+impl Deref for Error {
+    type Target = anyhow::Error;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 pub struct QuicStream(pub LocalPid);
 
+impl fmt::Debug for QuicStream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Stream Pid.")
+    }
+}
+
 #[derive(NifTuple)]
 #[rustler(encode, decode)]
 pub struct QuicSocket(pub LocalPid);
+
+impl fmt::Debug for QuicSocket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Socket Pid.")
+    }
+}
 
 /// The SocketRef and StreamRef newtype structs are used to wrap the Socket and Stream interfaces
 /// in a RwLock. A RwLock is used instead of a Mutex because there should be little change (writes)
 /// performed on these data structures. They contain data used to setup the connection or the
 /// information necessary to send received messages or errors to the owners (PIDs).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SocketRef(pub Arc<BeamSocket>);
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StreamRef(pub Arc<BeamStream>);
 
 /// The Socket and Stream newtype structs are used to create a Rust representation

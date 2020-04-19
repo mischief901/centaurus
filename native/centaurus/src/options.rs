@@ -3,6 +3,7 @@ use rustler::{ NifUntaggedEnum };
 
 
 #[derive(NifUntaggedEnum)]
+#[derive(Debug)]
 pub enum QuicOptions {
     Timeout(u64),
 }

@@ -1,14 +1,16 @@
 /// Creates the client and server configurations from the supplied Config data and
 /// initializes the handler for the connection.
 
-use crate::error::{ ApplicationError, Error };
+use crate::error::{ ApplicationError };
 use crate::config::{ Configs };
 use crate::interface::{
-    types::{ SocketType, SocketRef, StreamType, StreamRef },
+    types::{ SocketType, SocketRef, StreamRef },
 };
 use crate::runtime;
 use crate::runtime::{ Event, SocketEvent, StreamEvent };
 use crate::state::{ SocketState };
+
+use anyhow::{ Context, Result };
 
 use quinn::{
     ClientConfigBuilder,
@@ -35,8 +37,8 @@ use std::{
     time::{ Duration },
 };
 
-pub struct Socket(AsyncSender<SocketEvent>);
-pub struct Stream(AsyncSender<StreamEvent>);
+pub struct Socket(pub AsyncSender<SocketEvent>);
+pub struct Stream(pub AsyncSender<StreamEvent>);
 
 impl Deref for Socket {
     type Target = AsyncSender<SocketEvent>;
@@ -55,10 +57,11 @@ impl Deref for Stream {
 }
 
 impl Socket {
-    pub fn new(conn_type: SocketType, socket_config: SocketRef, stream_config: StreamRef) -> Result<Self, Error> {
+    pub fn new(conn_type: SocketType, socket_config: SocketRef, stream_config: StreamRef) -> Result<Self> {
         let (sender, receiver) = channel();
         let mut endpoint = Endpoint::builder();
-        let socket_handle = runtime::handle()?;
+        let socket_handle = runtime::handle()
+            .context("Error getting runtime handle.")?;
         let state : SocketState = match conn_type {
             SocketType::Client => {
                 let certs = socket_config.certs()?;
@@ -84,22 +87,28 @@ impl Socket {
             socket_config: Arc::new(RwLock::new(socket_config)),
             stream_config: Arc::new(RwLock::new(stream_config)),
         };
-        let event = Event::OpenSocket(sender, conn_type, configs, state);
+        let response_channel = Mutex::new(sender);
+        let event = Event::OpenSocket(response_channel, conn_type, configs, state);
         socket_handle.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from runtime.")?
     }
 
-    pub fn listen(&self) -> Result<(), Error> {
+    pub fn listen(&self) -> Result<()> {
         let (sender, receiver) = channel();
-        self.send(SocketEvent::Listen(sender))?;
-        receiver.recv()?
+        let response_channel = Mutex::new(sender);
+        self.send(SocketEvent::Listen(response_channel))?;
+        receiver.recv()
+            .context("Error receiving data from listening socket.")?
     }
     
-    pub fn accept(&self, timeout: Option<u64>) -> Result<Self, Error> {
+    pub fn accept(&self, timeout: Option<u64>) -> Result<Self> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
-        self.send(SocketEvent::Accept(sender, timeout))?;
-        receiver.recv()?
+        let response_channel = Mutex::new(sender);
+        self.send(SocketEvent::Accept(response_channel, timeout))?;
+        receiver.recv()
+            .context("Error receiving data from accept socket.")?
     }
 /*        let handle = self.conn.enter(async move || {
             // The first await is for connection coming in.
@@ -134,12 +143,14 @@ impl Socket {
         self.state.replace(incoming);
         Ok(new_conn) */
 
-    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<Socket, Error> {
+    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
-        let event = SocketEvent::Connect(sender, address, timeout);
+        let response_channel = Mutex::new(sender);
+        let event = SocketEvent::Connect(response_channel, address, timeout);
         self.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from Connect socket.")?
     }
      /*   
         let connection_handle = self.conn.enter(async move || {
@@ -160,11 +171,13 @@ impl Socket {
     }
      */
     
-    pub fn new_uni_stream(&self) -> Result<Stream, Error> {
+    pub fn new_uni_stream(&self) -> Result<Stream> {
         let (sender, receiver) = channel();
-        let event = SocketEvent::OpenUniStream(sender);
+        let response_channel = Mutex::new(sender);
+        let event = SocketEvent::OpenUniStream(response_channel);
         self.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from Socket.")?
     }
 /*      let stream = self.state
             .connection()
@@ -174,11 +187,13 @@ impl Socket {
         Ok(Self::Stream::new_uni_stream(self.stream_config.clone(), stream_future))
     }
 */
-    pub fn new_bi_stream(&self) -> Result<Stream, Error> {
+    pub fn new_bi_stream(&self) -> Result<Stream> {
         let (sender, receiver) = channel();
-        let event = SocketEvent::OpenBiStream(sender);
+        let response_channel = Mutex::new(sender);
+        let event = SocketEvent::OpenBiStream(response_channel);
         self.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from Socket")?
     }
 /*        let stream = self.state
             .connection()
@@ -188,7 +203,7 @@ impl Socket {
         Ok(Self::Stream::new_bi_stream(self.stream_config.clone(), stream_future))
     }
 */
-    pub fn close(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<(), Error> {
+    pub fn close(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
         let event = SocketEvent::Close(error_code, reason);
         self.send(event)?;
         Ok(())
@@ -196,23 +211,27 @@ impl Socket {
 }
 
 impl Stream {
-    pub fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64, Error> {
+    pub fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let safe_buffer = Arc::new(Mutex::new(buffer));
         let (sender, receiver) = channel();
-        let event = StreamEvent::Read(sender, safe_buffer.clone(), timeout);
+        let response_channel = Mutex::new(sender);
+        let event = StreamEvent::Read(response_channel, safe_buffer.clone(), timeout);
         self.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from stream.")?
     }
 
-    pub fn write(&self, buffer: Vec<u8>) -> Result<(), Error> {
+    pub fn write(&self, buffer: Vec<u8>) -> Result<()> {
         let (sender, receiver) = channel();
-        let event = StreamEvent::Write(sender, buffer);
+        let response_channel = Mutex::new(sender);
+        let event = StreamEvent::Write(response_channel, buffer);
         self.send(event)?;
-        receiver.recv()?
+        receiver.recv()
+            .context("Error receiving data from stream.")?
     }
 
-    pub fn close_stream(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<(), Error> {
+    pub fn close_stream(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
         let event = StreamEvent::CloseStream(error_code, reason);
         self.send(event)?;
         Ok(())

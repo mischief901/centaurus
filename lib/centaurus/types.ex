@@ -66,6 +66,7 @@ defmodule Centaurus.Types do
     # TODO: Add certificates and server_name to enforced keys.
     @enforce_keys []
     defstruct [
+      socket_pid: nil,
       bind_address: "0.0.0.0:0",
       server_name: "",
       private_key: nil,
@@ -76,10 +77,11 @@ defmodule Centaurus.Types do
     alias Centaurus.Types
     
     @type t :: %__MODULE__{
+      socket_pid: pid,
       bind_address: String.t,
       server_name: String.t,
       private_key: Path.t,
-      options: Types.socket_options,
+      options: Types.quic_options,
       certificates: Path.t
     }
 
@@ -107,11 +109,15 @@ defmodule Centaurus.Types do
     
     @enforce_keys []
     defstruct [
-      direction: :bi,
+      stream_pid: nil,
+      stream_type: :bi,
+      options: []
     ]
 
     @type t :: %__MODULE__{
-      direction: :bi | :uni,
+      stream_pid: pid,
+      stream_type: :bi | :uni,
+      options: Types.quic_options,
     }
     
     @spec set_opts(__MODULE__.t, opts) :: {:ok, __MODULE__.t} | {:error, Types.error}

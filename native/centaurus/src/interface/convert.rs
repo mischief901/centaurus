@@ -2,6 +2,7 @@
 
 use super::types::{
     Certificates,
+    Error,
     PrivateKey,
     SocketAddr,
 };
@@ -9,6 +10,12 @@ use super::types::{
 use rustler::{ Decoder, Encoder, Env, Term };
 
 use std::path::PathBuf;
+
+impl<'a> Encoder for Error {
+    fn encode<'b>(&self, env: Env<'b>) -> Term<'b> {
+        self.to_string().encode(env)
+    }
+}
 
 impl<'a> Decoder<'a> for SocketAddr {
     fn decode(term : Term<'a>) -> Result<SocketAddr, rustler::Error> {

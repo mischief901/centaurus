@@ -18,11 +18,12 @@ use tokio::sync::{ Mutex };
 
 use std::{
     default::{ Default },
+    fmt,
     sync::{ Arc },
     ops::{ Deref },
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SocketState(Arc<Mutex<SocketStateInternal>>);
 
 #[derive(Default)]
@@ -35,7 +36,7 @@ pub struct SocketStateInternal {
     pub in_bi_streams: Option<IncomingBiStreams>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StreamState(Arc<Mutex<StreamStateInternal>>);
 
 #[derive(Default)]
@@ -44,6 +45,18 @@ pub struct StreamStateInternal {
     uni_future: Option<OpenUni>,
     pub recv: Option<RecvStream>,
     pub send: Option<SendStream>,
+}
+
+impl fmt::Debug for SocketStateInternal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Internal Socket State Error.")
+    }
+}
+
+impl fmt::Debug for StreamStateInternal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Internal Stream State Error.")
+    }
 }
 
 impl Deref for SocketState {
