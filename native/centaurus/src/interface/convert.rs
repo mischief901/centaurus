@@ -4,6 +4,8 @@ use super::types::{
     Certificates,
     Error,
     PrivateKey,
+    QuicSocket,
+    QuicStream,
     SocketAddr,
 };
 

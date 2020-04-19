@@ -9,11 +9,12 @@ defmodule Centaurus.Core do
   alias Centaurus.Types
   alias Types.SocketConfig
   alias Types.StreamConfig
+  alias Types.Options
 
   @doc """
   Creates a socket configuration from the supplied options.
   """
-  @spec socket_config(Types.quic_options) :: {:ok, SocketConfig.t} | {:error, Types.error}
+  @spec socket_config(Options.t) :: {:ok, SocketConfig.t} | {:error, Types.error}
   def socket_config(quic_options) do
     %SocketConfig{}
     |> SocketConfig.set_opts(quic_options)
@@ -22,7 +23,7 @@ defmodule Centaurus.Core do
   @doc """
   Creates a stream configuration from the supplied options.
   """
-  @spec stream_config(Types.quic_options) :: {:ok, StreamConfig.t} | {:error, Types.error}
+  @spec stream_config(Options.t) :: {:ok, StreamConfig.t} | {:error, Types.error}
   def stream_config(quic_options) do
     %StreamConfig{}
     |> StreamConfig.set_opts(quic_options)

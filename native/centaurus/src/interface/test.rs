@@ -17,6 +17,8 @@ use super::types::{
 use crate::error::{ ApplicationError };
 use crate::options::{ QuicOptions };
 
+use rustler;
+
 use tokio::{
     sync::mpsc::unbounded_channel
 };
@@ -28,136 +30,90 @@ use std::{
 type Result<T> = std::result::Result<T, Error>;
 
 #[rustler::nif]
-fn encode_socket_config(_socket: BeamSocket) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn encode_stream_config(_stream: BeamStream) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn decode_socket_config() -> Result<BeamSocket> {
+fn test_socket_config(socket: BeamSocket) -> Result<BeamSocket> {
     Ok(BeamSocket {
-        socket_pid: None,
+        socket_pid: socket.socket_pid,
         bind_address: Some(SocketAddr("127.0.0.1:0".parse().unwrap())),
         server_name: "localhost".to_string(),
-        options: vec!(),
+        options: QuicOptions { timeout: None },
         private_key: Some(PrivateKey(PathBuf::from("/"))),
         certificates: Some(Certificates(PathBuf::from("/")))
     })
 }
 
 #[rustler::nif]
-fn decode_stream_config() -> Result<BeamStream> {
+fn test_stream_config(stream: BeamStream) -> Result<BeamStream> {
     Ok(BeamStream {
-        stream_pid: None,
+        stream_pid: stream.stream_pid,
         stream_type: StreamType::Bi,
-        options: vec!()
+        options: QuicOptions { timeout: None }
     })
 }
 
 #[rustler::nif]
-fn encode_socket(_socket: Socket) -> Result<()> {
-    Ok(())
+fn test_socket(socket: Socket) -> Result<Socket> {
+    Ok(socket)
 }
 
 #[rustler::nif]
-fn encode_stream(_stream: Stream) -> Result<()> {
-    Ok(())
+fn test_stream(stream: Stream) -> Result<Stream> {
+    Ok(stream)
 }
 
 #[rustler::nif]
-fn decode_socket() -> Result<Socket> {
+fn get_socket() -> Result<Socket> {
     let (sender, _receiver) = unbounded_channel();
     Ok(Socket::from(crate::conn::Socket(sender)))
 }
 
 #[rustler::nif]
-fn decode_stream() -> Result<Stream> {
+fn get_stream() -> Result<Stream> {
     let (sender, _receiver) = unbounded_channel();
     Ok(Stream::from(crate::conn::Stream(sender)))
 }
 
 #[rustler::nif]
-fn encode_application_error(_error: ApplicationError) -> Result<()> {
-    Ok(())
+fn test_application_error(error: ApplicationError) -> Result<ApplicationError> {
+    Ok(error)
 }
 
 #[rustler::nif]
-fn decode_application_error() -> Result<ApplicationError> {
-    Ok(ApplicationError::Error(10))
+fn test_certificates(certs: Certificates) -> Result<Certificates> {
+    Ok(certs)
 }
 
 #[rustler::nif]
-fn encode_certificates(_certs: Certificates) -> Result<()> {
-    Ok(())
+fn test_private_key(key: PrivateKey) -> Result<PrivateKey> {
+    Ok(key)
 }
 
 #[rustler::nif]
-fn decode_certificates() -> Result<Certificates> {
-    Ok(Certificates(PathBuf::from("/certificate")))
+fn test_socket_addr(socket: SocketAddr) -> Result<SocketAddr> {
+    Ok(socket)
 }
 
 #[rustler::nif]
-fn encode_private_key(_key: PrivateKey) -> Result<()> {
-    Ok(())
+fn test_stream_type(stream_type: StreamType) -> Result<StreamType> {
+    Ok(stream_type)
 }
 
 #[rustler::nif]
-fn decode_private_key() -> Result<PrivateKey> {
-    Ok(PrivateKey(PathBuf::from("/private_key")))
+fn test_socket_type(socket_type: SocketType) -> Result<SocketType> {
+    Ok(socket_type)
 }
 
 #[rustler::nif]
-fn encode_socket_addr(_socket: SocketAddr) -> Result<()> {
-    Ok(())
+fn test_quic_opts(opts: QuicOptions) -> Result<QuicOptions> {
+    Ok(opts)
 }
 
 #[rustler::nif]
-fn decode_socket_addr() -> Result<SocketAddr> {
-    Ok(SocketAddr("127.0.0.1:0".parse().unwrap()))
+fn test_quic_socket(pid: QuicSocket) -> Result<QuicSocket> {
+    Ok(pid)
 }
 
 #[rustler::nif]
-fn encode_stream_type(_stream_type: StreamType) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn decode_stream_type() -> Result<StreamType> {
-    Ok(StreamType::Bi)
-}
-
-#[rustler::nif]
-fn encode_socket_type(_socket_type: SocketType) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn decode_socket_type() -> Result<SocketType> {
-    Ok(SocketType::Server)
-}
-
-#[rustler::nif]
-fn encode_quic_opts(_opts: QuicOptions) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn decode_quic_opts() -> Result<Vec<QuicOptions>> {
-    let option = QuicOptions::Timeout(5_000);
-    Ok(vec!(option))
-}
-
-#[rustler::nif]
-fn encode_quic_socket(_pid: Vec<QuicSocket>) -> Result<()> {
-    Ok(())
-}
-
-#[rustler::nif]
-fn encode_quic_stream(_pid: QuicStream) -> Result<()> {
-    Ok(())
+fn test_quic_stream(pid: QuicStream) -> Result<QuicStream> {
+    Ok(pid)
 }
 

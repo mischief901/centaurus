@@ -28,11 +28,6 @@ defmodule Centaurus.Types do
   @type port_number :: :inet.port_number
 
   @typedoc """
-  The possible set of configuration options for Quic sockets and streams.
-  """
-  @type quic_options :: list(any)
-
-  @typedoc """
   The errors that can occur either from the runtime or setting up a configuration.
   """
   @type error :: any
@@ -125,5 +120,18 @@ defmodule Centaurus.Types do
     def set_opts(stream_config, _opts) do
       {:ok, stream_config}
     end
+  end
+
+  defmodule Options do
+    defstruct [
+      timeout: nil
+    ]
+    
+    @typedoc """
+    The possible set of configuration options for Quic sockets and streams.
+    """
+    @type t :: %__MODULE__{
+      timeout: non_neg_integer() 
+    }
   end
 end
