@@ -22,6 +22,7 @@ defmodule Centaurus.Nif do
   def write(_stream, _data), do: err()    
 
   # The rest are for testing the translation between Elixir and Rust.
+  def create_cert_and_key(_directory, _server_name), do: err()
   def test_socket_config(_socket), do: err()
   def test_stream_config(_stream), do: err()
   def test_socket(_socket), do: err()

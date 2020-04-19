@@ -23,8 +23,7 @@ type Result<T> = std::result::Result<T, Error>;
 /// listen(quic_socket)
 #[rustler::nif]
 fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<()> {
-    let socket = conn::Socket::new(SocketType::Server, socket_config.into(), stream_config.into())
-        .context("Invalid Socket configuration.")?;
+    let socket = conn::Socket::new(SocketType::Server, socket_config.into(), stream_config.into())?;
     socket.listen()
         .context("Listen Failure.")?;
     Ok(())
@@ -33,8 +32,7 @@ fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<()> {
 /// connect(quic_socket, timeout)
 #[rustler::nif]
 fn connect(socket_config: BeamSocket, stream_config: BeamStream, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
-    let socket = conn::Socket::new(SocketType::Client, socket_config.into(), stream_config.into())
-        .context("Invalid Socket configuration.")?;
+    let socket = conn::Socket::new(SocketType::Client, socket_config.into(), stream_config.into())?;
     let socket = socket.connect(*address, timeout)
         .context("Connect Failure.")?;
     Ok(socket.into())

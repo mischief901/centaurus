@@ -17,17 +17,90 @@ use super::types::{
 use crate::error::{ ApplicationError };
 use crate::options::{ QuicOptions };
 
+use anyhow::{ Context };
+
 use rustler;
+use rustler::{ Decoder, Encoder, Env, Term };
 
 use tokio::{
     sync::mpsc::unbounded_channel
 };
 
 use std::{
+    io::{ Write },
+    fs::{ File },
+    ops::{ Deref, DerefMut },
     path::PathBuf
 };
 
 type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Clone, Debug)]
+pub struct Directory(pub PathBuf);
+
+impl Deref for Directory {
+    type Target = PathBuf;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+/*
+impl DerefMut for Directory {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+
+    }
+}*/
+
+impl<'a> Decoder<'a> for Directory {
+    fn decode(term : Term<'a>) -> std::result::Result<Self, rustler::Error> {
+        let raw : &str = Decoder::decode(term)
+            .or(Err(rustler::Error::Term(Box::new("Invalid Directory"))))?;
+        let mut path = PathBuf::new();
+        path.push(raw);
+        Ok(Directory(path))
+    }
+}
+
+impl<'a> Encoder for Directory {
+    fn encode<'b>(&self, env: Env<'b>) -> Term<'b> {
+        let Directory(path) = self;
+        path.to_str().encode(env)
+    }
+}
+
+#[rustler::nif]
+fn create_cert_and_key(path: Directory, name: Option<String>) -> Result<()> {
+    let name = name.or(Some("localhost".to_string())).unwrap();
+    let cert = rcgen::generate_simple_self_signed(vec![name]).unwrap();
+
+    let cert_pem = cert.serialize_pem()
+        .context("Error Serializing Cert.")?;
+    let cert_der = cert.serialize_der()
+        .context("Error Serializing Cert.")?;
+    let priv_key_pem = cert.serialize_private_key_pem();
+    let priv_key_der = cert.serialize_private_key_der();
+
+    let cert_pem_name: PathBuf = [path.0.clone(), "cert.pem".into()].iter().collect();
+    let cert_der_name: PathBuf = [path.0.clone(), "cert.der".into()].iter().collect();
+    let priv_pem_name: PathBuf = [path.0.clone(), "key.pem".into()].iter().collect();
+    let priv_der_name: PathBuf = [path.0.clone(), "key.der".into()].iter().collect();
+    
+    let mut cert_file_pem = File::create(cert_pem_name)
+        .context("Error creating Cert File.")?;
+    let mut cert_file_der = File::create(cert_der_name)
+        .context("Error creating Cert File.")?;
+    let mut priv_file_pem = File::create(priv_pem_name)
+        .context("Error creating Private Key File.")?;
+    let mut priv_file_der = File::create(priv_der_name)
+        .context("Error creating Private Key File.")?;
+
+    cert_file_pem.write_all(cert_pem.as_bytes()).context("Error Writing Certificate Pem")?;
+    cert_file_der.write_all(&cert_der).context("Error Writing Certificate Der")?;
+    priv_file_pem.write_all(priv_key_pem.as_bytes()).context("Error Writing Private Key Pem")?;
+    priv_file_der.write_all(&priv_key_der).context("Error Writing Private Key Der")?;
+    Ok(())
+}
 
 #[rustler::nif]
 fn test_socket_config(socket: BeamSocket) -> Result<BeamSocket> {

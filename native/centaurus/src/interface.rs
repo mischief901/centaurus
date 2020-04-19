@@ -30,6 +30,7 @@ atoms! {
 init!(
     "Elixir.Centaurus.Nif",
     [
+        test::create_cert_and_key,
         test::test_socket_config,
         test::test_stream_config,
         test::test_socket,
