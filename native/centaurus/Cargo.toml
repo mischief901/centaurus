@@ -19,5 +19,5 @@ rustler = { version = "0.22.0-rc.0", features = ["derive"] }
 rustls = { version = "0.17", features = ["quic"] }
 serde = { version = "1.0.104", features = ["derive"] }
 stable_deref_trait = "1.1.1"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.2.21", features = ["full"] }
 webpki = { version = "0.21" }

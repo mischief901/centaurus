@@ -23,20 +23,27 @@ use std::{
     ops::{ Deref },
 };
 
-#[derive(Clone, Debug)]
-pub struct SocketState(Arc<Mutex<SocketStateInternal>>);
+#[derive(Clone, Debug, Default)]
+pub struct SocketState {
+    local: Arc<Mutex<Option<SocketStateLocal>>>,
+    pub peer: SocketStatePeer,
+}
 
 #[derive(Default)]
-pub struct SocketStateInternal {
+pub struct SocketStateLocal {
     pub incoming: Option<Incoming>,
     pub endpoint: Option<Endpoint>,
     pub endpoint_builder: Option<EndpointBuilder>,
     pub connection: Option<Connection>,
-    pub in_uni_streams: Option<IncomingUniStreams>,
-    pub in_bi_streams: Option<IncomingBiStreams>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default)]
+pub struct SocketStatePeer {
+    pub uni_streams: Arc<Mutex<Option<IncomingUniStreams>>>,
+    pub bi_streams: Arc<Mutex<Option<IncomingBiStreams>>>,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct StreamState(Arc<Mutex<StreamStateInternal>>);
 
 #[derive(Default)]
@@ -47,9 +54,15 @@ pub struct StreamStateInternal {
     pub send: Option<SendStream>,
 }
 
-impl fmt::Debug for SocketStateInternal {
+impl fmt::Debug for SocketStateLocal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Internal Socket State Error.")
+        write!(f, "Local Socket State Error.")
+    }
+}
+
+impl fmt::Debug for SocketStatePeer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Peer Socket State Error.")
     }
 }
 
@@ -59,23 +72,18 @@ impl fmt::Debug for StreamStateInternal {
     }
 }
 
-impl Deref for SocketState {
-    type Target = Mutex<SocketStateInternal>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl From<EndpointBuilder> for SocketState {
     fn from(endpoint: EndpointBuilder) -> Self {
-        SocketState(Arc::new(Mutex::new(endpoint.into())))
+        SocketState {
+            local: Arc::new(Mutex::new(Some(endpoint.into()))),
+            ..Default::default()
+        }
     }
 }
 
-impl From<EndpointBuilder> for SocketStateInternal {
+impl From<EndpointBuilder> for SocketStateLocal {
     fn from(endpoint_builder: EndpointBuilder) -> Self {
-        SocketStateInternal {
+        SocketStateLocal {
             endpoint_builder: Some(endpoint_builder),
             ..Default::default()
         }
@@ -84,36 +92,35 @@ impl From<EndpointBuilder> for SocketStateInternal {
 
 impl From<NewConnection> for SocketState {
     fn from(conn: NewConnection) -> Self {
-        SocketState(Arc::new(Mutex::new(conn.into())))
-    }
-}
-
-impl From<NewConnection> for SocketStateInternal {
-    fn from(conn: NewConnection) -> Self {
-        let NewConnection {
-            connection,
-            uni_streams,
-            bi_streams,
-            ..
-        } = conn;
-        SocketStateInternal {
-            connection: Some(connection),
-            in_uni_streams: Some(uni_streams),
-            in_bi_streams: Some(bi_streams),
+        let local = Arc::new(Mutex::new(Some(
+            SocketStateLocal {
+                connection: Some(conn.connection),
+                ..Default::default()
+            })));
+        let peer = SocketStatePeer {
+            uni_streams: Arc::new(Mutex::new(Some(conn.uni_streams))),
+            bi_streams: Arc::new(Mutex::new(Some(conn.bi_streams))),
             ..Default::default()
+        };
+        SocketState {
+            local,
+            peer,
         }
     }
 }
 
 impl From<Endpoint> for SocketState {
     fn from(endpoint: Endpoint) -> Self {
-        SocketState(Arc::new(Mutex::new(endpoint.into())))
+        SocketState {
+            local: Arc::new(Mutex::new(Some(endpoint.into()))),
+            ..Default::default()
+        }
     }
 }
 
-impl From<Endpoint> for SocketStateInternal {
+impl From<Endpoint> for SocketStateLocal {
     fn from(endpoint: Endpoint) -> Self {
-        SocketStateInternal {
+        SocketStateLocal {
             endpoint: Some(endpoint),
             ..Default::default()
         }
@@ -122,13 +129,16 @@ impl From<Endpoint> for SocketStateInternal {
 
 impl From<Incoming> for SocketState {
     fn from(incoming: Incoming) -> Self {
-        SocketState(Arc::new(Mutex::new(incoming.into())))
+        SocketState {
+            local: Arc::new(Mutex::new(Some(incoming.into()))),
+            ..Default::default()
+        }
     }
 }
 
-impl From<Incoming> for SocketStateInternal {
+impl From<Incoming> for SocketStateLocal {
     fn from(incoming: Incoming) -> Self {
-        SocketStateInternal {
+        SocketStateLocal {
             incoming: Some(incoming),
             ..Default::default()
         }

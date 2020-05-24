@@ -93,14 +93,6 @@ impl Socket {
         receiver.recv()
             .context("Error receiving data from runtime.")?
     }
-
-    pub fn listen(&self) -> Result<()> {
-        let (sender, receiver) = channel();
-        let response_channel = Mutex::new(sender);
-        self.send(SocketEvent::Listen(response_channel))?;
-        receiver.recv()
-            .context("Error receiving data from listening socket.")?
-    }
     
     pub fn accept(&self, timeout: Option<u64>) -> Result<Self> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
@@ -108,68 +100,27 @@ impl Socket {
         let response_channel = Mutex::new(sender);
         self.send(SocketEvent::Accept(response_channel, timeout))?;
         receiver.recv()
-            .context("Error receiving data from accept socket.")?
+            .context("Error receiving data from runtime.")?
     }
-/*        let handle = self.conn.enter(async move || {
-            // The first await is for connection coming in.
-            // The second await is for setting up the connection.
-            let future = state
-                .lock()
-                .incoming()
-                .as_mut()
-                .map(|incoming| incoming.next())
-                .unwrap()
-                .await
-                .unwrap();
-            let new_state = if let Some(duration) = timeout {
-                time::timeout(duration, future)
-                    .await
-                    .unwrap()
-                    .unwrap()
-            } else {
-                future.await
-                    .unwrap()
-            };
-            result
-        });
-        let (new_state, incoming) : (NewConnection, Incoming) = self.conn.block_on(handle);
-        let new_conn = Socket {
-            conn: Runtime::new(),
-            state: new_state.into(),
-            stream_config: self.stream_config.clone(),
-            conn_type: self.conn_type.clone(),
-            meta: self.meta.clone(),
-        };
-        self.state.replace(incoming);
-        Ok(new_conn) */
 
-    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
+    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<()> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
         let response_channel = Mutex::new(sender);
         let event = SocketEvent::Connect(response_channel, address, timeout);
         self.send(event)?;
         receiver.recv()
-            .context("Error receiving data from Connect socket.")?
+            .context("Error receiving data from runtime.")?
     }
-     /*   
-        let connection_handle = self.conn.enter(async move || {
-            if let Some(duration) = timeout {
-                time::timeout(duration,
-                              endpoint.connect(&address, &server_name)
-                              .unwrap())
-                    .await
-                    .unwrap()
-                    .unwrap()
-            } else {
-                future.await
-                    .unwrap()
-            };
-            state.replace(new_conn);
-        });
-        self.run_socket()
+
+    pub fn listen(&self, sock_addr: SocketAddr) -> Result<Socket> {
+        let (sender, receiver) = channel();
+        let response_channel = Mutex::new(sender);
+        let event = SocketEvent::Listen(response_channel, sock_addr);
+        self.send(event)?;
+        receiver.recv()
+            .context("Error receiving data from runtime.")?
     }
-     */
     
     pub fn new_uni_stream(&self) -> Result<Stream> {
         let (sender, receiver) = channel();
@@ -177,32 +128,18 @@ impl Socket {
         let event = SocketEvent::OpenUniStream(response_channel);
         self.send(event)?;
         receiver.recv()
-            .context("Error receiving data from Socket.")?
+            .context("Error receiving data from runtime.")?
     }
-/*      let stream = self.state
-            .connection()
-            .as_mut()
-            .map(|connection| connection.open_uni())
-            .unwrap();
-        Ok(Self::Stream::new_uni_stream(self.stream_config.clone(), stream_future))
-    }
-*/
+    
     pub fn new_bi_stream(&self) -> Result<Stream> {
         let (sender, receiver) = channel();
         let response_channel = Mutex::new(sender);
         let event = SocketEvent::OpenBiStream(response_channel);
         self.send(event)?;
         receiver.recv()
-            .context("Error receiving data from Socket")?
+            .context("Error receiving data from runtime.")?
     }
-/*        let stream = self.state
-            .connection()
-            .as_mut()
-            .map(|connection| connection.open_bi())
-            .unwrap();
-        Ok(Self::Stream::new_bi_stream(self.stream_config.clone(), stream_future))
-    }
-*/
+
     pub fn close(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
         let event = SocketEvent::Close(error_code, reason);
         self.send(event)?;
@@ -219,7 +156,7 @@ impl Stream {
         let event = StreamEvent::Read(response_channel, safe_buffer.clone(), timeout);
         self.send(event)?;
         receiver.recv()
-            .context("Error receiving data from stream.")?
+            .context("Error receiving data from runtime.")?
     }
 
     pub fn write(&self, buffer: Vec<u8>) -> Result<()> {
@@ -228,11 +165,11 @@ impl Stream {
         let event = StreamEvent::Write(response_channel, buffer);
         self.send(event)?;
         receiver.recv()
-            .context("Error receiving data from stream.")?
+            .context("Error receiving data from runtime.")?
     }
 
-    pub fn close_stream(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
-        let event = StreamEvent::CloseStream(error_code, reason);
+    pub fn close_stream(&self, error_code: ApplicationError) -> Result<()> {
+        let event = StreamEvent::CloseStream(error_code);
         self.send(event)?;
         Ok(())
     }

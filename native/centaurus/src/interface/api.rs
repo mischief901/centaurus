@@ -22,18 +22,16 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// listen(quic_socket)
 #[rustler::nif]
-fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<()> {
+fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<Socket> {
     let socket = conn::Socket::new(SocketType::Server, socket_config.into(), stream_config.into())?;
-    socket.listen()
-        .context("Listen Failure.")?;
-    Ok(())
+    Ok(socket.into())
 }
 
 /// connect(quic_socket, timeout)
 #[rustler::nif]
 fn connect(socket_config: BeamSocket, stream_config: BeamStream, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
     let socket = conn::Socket::new(SocketType::Client, socket_config.into(), stream_config.into())?;
-    let socket = socket.connect(*address, timeout)
+    socket.connect(*address, timeout)
         .context("Connect Failure.")?;
     Ok(socket.into())
 }
@@ -94,8 +92,8 @@ fn close(quic_socket: Socket, error_code: ApplicationError, reason: Option<Vec<u
 
 /// close_stream(quic_stream, error_code, reason)
 #[rustler::nif]
-fn close_stream(quic_stream: Stream, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
-    quic_stream.close_stream(error_code, reason)
+fn close_stream(quic_stream: Stream, error_code: ApplicationError) -> Result<()> {
+    quic_stream.close_stream(error_code)
         .context("Could not close stream.")?;
     Ok(())
 }
