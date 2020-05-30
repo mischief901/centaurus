@@ -1,5 +1,5 @@
 /// The set of options, defaults, and related checking functions.
-use rustler::{ NifUntaggedEnum };
+//use rustler::{ NifUntaggedEnum };
 
 #[derive(Debug)]
 #[derive(NifStruct)]

@@ -6,7 +6,6 @@ use rustler::{
     LocalPid,
     ResourceArc,
     NifStruct,
-    NifTuple,
     NifUnitEnum,
     NifUntaggedEnum,
 };
@@ -138,7 +137,17 @@ pub struct StreamRef(pub Arc<BeamStream>);
 #[derive(NifUntaggedEnum)]
 #[rustler(encode, decode)]
 #[derive(Clone)]
-pub enum Socket { Socket(ResourceArc::<SocketInterior>) }
+pub enum NewSocket {
+    Socket(ResourceArc::<NewSocketInterior>),
+}
+pub struct NewSocketInterior(conn::NewSocket);
+
+#[derive(NifUntaggedEnum)]
+#[rustler(encode, decode)]
+#[derive(Clone)]
+pub enum Socket {
+    Socket(ResourceArc::<SocketInterior>),
+}
 pub struct SocketInterior(conn::Socket);
 
 #[derive(NifUntaggedEnum)]
@@ -146,6 +155,23 @@ pub struct SocketInterior(conn::Socket);
 #[derive(Clone)]
 pub enum Stream { Stream(ResourceArc::<StreamInterior>) }
 pub struct StreamInterior(conn::Stream);
+
+impl Deref for NewSocket {
+    type Target = NewSocketInterior;
+    
+    fn deref(&self) -> &Self::Target {
+        let NewSocket::Socket(socket) = self;
+        &socket
+    }
+}
+
+impl Deref for NewSocketInterior {
+    type Target = conn::NewSocket;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Deref for Socket {
     type Target = SocketInterior;
@@ -206,6 +232,18 @@ impl Into<SocketRef> for BeamSocket {
 impl Into<StreamRef> for BeamStream {
     fn into(self) -> StreamRef {
         StreamRef(Arc::new(self))
+    }
+}
+
+impl From<conn::NewSocket> for NewSocket {
+    fn from(socket_int : conn::NewSocket) -> Self {
+        NewSocket::Socket(ResourceArc::new(socket_int.into()))
+    }
+}
+
+impl From<conn::NewSocket> for NewSocketInterior {
+    fn from(socket_int : conn::NewSocket) -> Self {
+        NewSocketInterior(socket_int)
     }
 }
 

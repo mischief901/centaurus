@@ -7,14 +7,14 @@ use crate::interface::{
     types::{ SocketType, SocketRef, StreamRef },
 };
 use crate::runtime;
-use crate::runtime::{ Event, SocketEvent, StreamEvent };
-use crate::state::{ SocketState };
+use crate::runtime::{ Event, NewSocketEvent, SocketEvent, StreamEvent };
 
 use anyhow::{ Context, Result };
 
 use quinn::{
     ClientConfigBuilder,
     Endpoint,
+    EndpointBuilder,
     ServerConfig,
     ServerConfigBuilder,
     TransportConfig
@@ -37,8 +37,17 @@ use std::{
     time::{ Duration },
 };
 
+pub struct NewSocket(pub AsyncSender<NewSocketEvent>);
 pub struct Socket(pub AsyncSender<SocketEvent>);
 pub struct Stream(pub AsyncSender<StreamEvent>);
+
+impl Deref for NewSocket {
+    type Target = AsyncSender<NewSocketEvent>;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Deref for Socket {
     type Target = AsyncSender<SocketEvent>;
@@ -56,19 +65,19 @@ impl Deref for Stream {
     }
 }
 
-impl Socket {
+impl NewSocket {
     pub fn new(conn_type: SocketType, socket_config: SocketRef, stream_config: StreamRef) -> Result<Self> {
         let (sender, receiver) = channel();
         let mut endpoint = Endpoint::builder();
         let socket_handle = runtime::handle()
             .context("Error getting runtime handle.")?;
-        let state : SocketState = match conn_type {
+        let state : EndpointBuilder = match conn_type {
             SocketType::Client => {
                 let certs = socket_config.certs()?;
                 let mut client = ClientConfigBuilder::default();
                 client.add_certificate_authority(certs)?;
                 endpoint.default_client_config(client.build());
-                endpoint.into()
+                endpoint
             },
             SocketType::Server => {
                 let private_key = socket_config.private_key()?;
@@ -80,7 +89,7 @@ impl Socket {
                 let mut server = ServerConfigBuilder::new(server_config);
                 server.certificate(cert_chain, private_key)?;
                 endpoint.listen(server.build());
-                endpoint.into()
+                endpoint
             },
         };
         let configs = Configs {
@@ -94,34 +103,33 @@ impl Socket {
             .context("Error receiving data from runtime.")?
     }
     
-    pub fn accept(&self, timeout: Option<u64>) -> Result<Self> {
+    pub fn accept(&self, timeout: Option<u64>) -> Result<Socket> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
         let response_channel = Mutex::new(sender);
-        self.send(SocketEvent::Accept(response_channel, timeout))?;
+        self.send(NewSocketEvent::Accept(response_channel, timeout))?;
         receiver.recv()
             .context("Error receiving data from runtime.")?
     }
 
-    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<()> {
+    pub fn connect(&self, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let (sender, receiver) = channel();
         let response_channel = Mutex::new(sender);
-        let event = SocketEvent::Connect(response_channel, address, timeout);
-        self.send(event)?;
-        receiver.recv()
-            .context("Error receiving data from runtime.")?
-    }
-
-    pub fn listen(&self, sock_addr: SocketAddr) -> Result<Socket> {
-        let (sender, receiver) = channel();
-        let response_channel = Mutex::new(sender);
-        let event = SocketEvent::Listen(response_channel, sock_addr);
+        let event = NewSocketEvent::Connect(response_channel, address, timeout);
         self.send(event)?;
         receiver.recv()
             .context("Error receiving data from runtime.")?
     }
     
+    pub fn close(&self, error_code: ApplicationError, reason: Option<String>) -> Result<()> {
+        let event = NewSocketEvent::Close(error_code, reason);
+        self.send(event)?;
+        Ok(())
+    }
+}
+
+impl Socket {
     pub fn new_uni_stream(&self) -> Result<Stream> {
         let (sender, receiver) = channel();
         let response_channel = Mutex::new(sender);
@@ -140,7 +148,7 @@ impl Socket {
             .context("Error receiving data from runtime.")?
     }
 
-    pub fn close(&self, error_code: ApplicationError, reason: Option<Vec<u8>>) -> Result<()> {
+    pub fn close(&self, error_code: ApplicationError, reason: Option<String>) -> Result<()> {
         let event = SocketEvent::Close(error_code, reason);
         self.send(event)?;
         Ok(())
@@ -148,7 +156,7 @@ impl Socket {
 }
 
 impl Stream {
-    pub fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<u64> {
+    pub fn read(&self, buffer: Vec<u8>, timeout: Option<u64>) -> Result<usize> {
         let timeout = timeout.map(|time| Duration::from_millis(time));
         let safe_buffer = Arc::new(Mutex::new(buffer));
         let (sender, receiver) = channel();
@@ -177,6 +185,18 @@ impl Stream {
 
 impl From<AsyncSender<SocketEvent>> for Socket {
     fn from(sender : AsyncSender<SocketEvent>) -> Self {
+        Self(sender)
+    }
+}
+
+impl From<AsyncSender<NewSocketEvent>> for NewSocket {
+    fn from(sender : AsyncSender<NewSocketEvent>) -> Self {
+        Self(sender)
+    }
+}
+
+impl From<AsyncSender<StreamEvent>> for Stream {
+    fn from(sender : AsyncSender<StreamEvent>) -> Self {
         Self(sender)
     }
 }

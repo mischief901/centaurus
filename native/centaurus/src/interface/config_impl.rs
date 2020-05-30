@@ -2,6 +2,7 @@
 
 use super::types::{
     BeamSocket,
+    QuicSocket,
     SocketAddr,
     SocketRef,
 };
@@ -11,6 +12,10 @@ use anyhow::{ Context, Result };
 use quinn::{
     Certificate,
     CertificateChain,
+};
+
+use rustler::{
+    OwnedEnv,
 };
 
 impl SocketRef {
@@ -28,6 +33,10 @@ impl SocketRef {
 
     pub fn private_key(&self) -> Result<quinn::PrivateKey> {
         self.0.private_key()
+    }
+
+    pub fn send<T : rustler::Encoder>(&self, msg: T) -> Result<()> {
+        self.0.send(msg)
     }
     
     pub fn server_name(&self) -> Result<String> {
@@ -65,6 +74,17 @@ impl BeamSocket {
             .unwrap()
             .as_key()
             .context("Error reading Private Key.")
+    }
+
+    fn send<T : rustler::Encoder>(&self, msg: T) -> Result<()> {
+        let mut env = OwnedEnv::new();
+        match &self.socket_pid {
+            Some(QuicSocket::Pid(pid)) => {
+                env.send_and_clear(pid, |env| msg.encode(env));
+                Ok(())
+            },
+            _ => Err(anyhow::anyhow!("Invalid Pid for sending data."))
+        }
     }
     
     fn server_name(&self) -> Result<String> {

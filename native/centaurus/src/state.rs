@@ -25,7 +25,7 @@ use std::{
 
 #[derive(Clone, Debug, Default)]
 pub struct SocketState {
-    local: Arc<Mutex<Option<SocketStateLocal>>>,
+    pub local: Option<Arc<Mutex<SocketStateLocal>>>,
     pub peer: SocketStatePeer,
 }
 
@@ -33,26 +33,32 @@ pub struct SocketState {
 pub struct SocketStateLocal {
     pub incoming: Option<Incoming>,
     pub endpoint: Option<Endpoint>,
-    pub endpoint_builder: Option<EndpointBuilder>,
     pub connection: Option<Connection>,
 }
 
 #[derive(Clone, Default)]
 pub struct SocketStatePeer {
-    pub uni_streams: Arc<Mutex<Option<IncomingUniStreams>>>,
-    pub bi_streams: Arc<Mutex<Option<IncomingBiStreams>>>,
+    pub uni_streams: Option<Arc<Mutex<IncomingUniStreams>>>,
+    pub bi_streams: Option<Arc<Mutex<IncomingBiStreams>>>,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct StreamState(Arc<Mutex<StreamStateInternal>>);
+pub struct StreamState {
+    pub local: Option<Arc<Mutex<StreamStateLocal>>>,
+//    pub peer: Option<Arc<StreamStatePeer>>,
+}
 
 #[derive(Default)]
-pub struct StreamStateInternal {
-    bi_future: Option<OpenBi>,
-    uni_future: Option<OpenUni>,
+pub struct StreamStateLocal {
+    pub bi_future: Option<OpenBi>,
+    pub uni_future: Option<OpenUni>,
     pub recv: Option<RecvStream>,
     pub send: Option<SendStream>,
 }
+
+// Currently not used, but will be used when active receive is implemented.
+#[derive(Default)]
+pub struct StreamStatePeer;
 
 impl fmt::Debug for SocketStateLocal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -66,25 +72,33 @@ impl fmt::Debug for SocketStatePeer {
     }
 }
 
-impl fmt::Debug for StreamStateInternal {
+impl fmt::Debug for StreamStateLocal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Internal Stream State Error.")
+        write!(f, "Local Stream State Error.")
     }
 }
 
-impl From<EndpointBuilder> for SocketState {
-    fn from(endpoint: EndpointBuilder) -> Self {
-        SocketState {
-            local: Arc::new(Mutex::new(Some(endpoint.into()))),
+impl fmt::Debug for StreamStatePeer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Peer Stream State Error.")
+    }
+}
+
+impl From<(Endpoint, Incoming)> for SocketState {
+    fn from(local: (Endpoint, Incoming)) -> Self {
+        let local = Some(Arc::new(Mutex::new(local.into())));
+        Self {
+            local,
             ..Default::default()
         }
     }
 }
 
-impl From<EndpointBuilder> for SocketStateLocal {
-    fn from(endpoint_builder: EndpointBuilder) -> Self {
-        SocketStateLocal {
-            endpoint_builder: Some(endpoint_builder),
+impl From<(Endpoint, Incoming)> for SocketStateLocal {
+    fn from((endpoint, incoming) : (Endpoint, Incoming)) -> Self {
+        Self {
+            endpoint: Some(endpoint),
+            incoming: Some(incoming),
             ..Default::default()
         }
     }
@@ -92,14 +106,14 @@ impl From<EndpointBuilder> for SocketStateLocal {
 
 impl From<NewConnection> for SocketState {
     fn from(conn: NewConnection) -> Self {
-        let local = Arc::new(Mutex::new(Some(
+        let local = Some(Arc::new(Mutex::new(
             SocketStateLocal {
                 connection: Some(conn.connection),
                 ..Default::default()
             })));
         let peer = SocketStatePeer {
-            uni_streams: Arc::new(Mutex::new(Some(conn.uni_streams))),
-            bi_streams: Arc::new(Mutex::new(Some(conn.bi_streams))),
+            uni_streams: Some(Arc::new(Mutex::new(conn.uni_streams))),
+            bi_streams: Some(Arc::new(Mutex::new(conn.bi_streams))),
             ..Default::default()
         };
         SocketState {
@@ -112,7 +126,7 @@ impl From<NewConnection> for SocketState {
 impl From<Endpoint> for SocketState {
     fn from(endpoint: Endpoint) -> Self {
         SocketState {
-            local: Arc::new(Mutex::new(Some(endpoint.into()))),
+            local: Some(Arc::new(Mutex::new(endpoint.into()))),
             ..Default::default()
         }
     }
@@ -130,7 +144,7 @@ impl From<Endpoint> for SocketStateLocal {
 impl From<Incoming> for SocketState {
     fn from(incoming: Incoming) -> Self {
         SocketState {
-            local: Arc::new(Mutex::new(Some(incoming.into()))),
+            local: Some(Arc::new(Mutex::new(incoming.into()))),
             ..Default::default()
         }
     }
@@ -147,13 +161,16 @@ impl From<Incoming> for SocketStateLocal {
 
 impl From<OpenUni> for StreamState {
     fn from(future: OpenUni) -> Self {
-        StreamState(Arc::new(Mutex::new(future.into())))
+        StreamState {
+            local: Some(Arc::new(Mutex::new(future.into()))),
+            ..Default::default()
+        }
     }
 }
 
-impl From<OpenUni> for StreamStateInternal {
+impl From<OpenUni> for StreamStateLocal {
     fn from(future: OpenUni) -> Self {
-        StreamStateInternal {
+        StreamStateLocal {
             uni_future: Some(future),
             ..Default::default()
         }
@@ -162,14 +179,75 @@ impl From<OpenUni> for StreamStateInternal {
         
 impl From<OpenBi> for StreamState {
     fn from(future: OpenBi) -> Self {
-        StreamState(Arc::new(Mutex::new(future.into())))
+        StreamState {
+            local: Some(Arc::new(Mutex::new(future.into()))),
+            ..Default::default()
+        }
     }
 }
 
-impl From<OpenBi> for StreamStateInternal {
+impl From<OpenBi> for StreamStateLocal {
     fn from(future: OpenBi) -> Self {
-        StreamStateInternal {
+        StreamStateLocal {
             bi_future: Some(future),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<SendStream> for StreamState {
+    fn from(send: SendStream) -> Self {
+        let local = send.into();
+        StreamState {
+            local: Some(Arc::new(Mutex::new(local))),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<SendStream> for StreamStateLocal {
+    fn from(send: SendStream) -> Self {
+        StreamStateLocal {
+            send: Some(send),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<RecvStream> for StreamState {
+    fn from(recv: RecvStream) -> Self {
+        let local = recv.into();
+        StreamState {
+            local: Some(Arc::new(Mutex::new(local))),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<RecvStream> for StreamStateLocal {
+    fn from(recv: RecvStream) -> Self {
+        StreamStateLocal {
+            recv: Some(recv),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<(SendStream, RecvStream)> for StreamState {
+    fn from(bi_stream : (SendStream, RecvStream)) -> Self {
+        let local = bi_stream.into();
+        Self {
+            local: Some(Arc::new(Mutex::new(local))),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<(SendStream, RecvStream)> for StreamStateLocal {
+    fn from((send, recv) : (SendStream, RecvStream)) -> Self {
+        Self {
+            send: Some(send),
+            recv: Some(recv),
             ..Default::default()
         }
     }

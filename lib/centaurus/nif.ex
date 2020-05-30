@@ -11,7 +11,7 @@ defmodule Centaurus.Nif do
 
   def close(_socket, _error_code, _reason), do: err()
 
-  def close_stream(_stream, _error_code, _reason), do: err()
+  def close_stream(_stream, _error_code), do: err()
 
   def listen(_socket_config, _stream_config), do: err()
 

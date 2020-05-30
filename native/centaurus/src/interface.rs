@@ -9,6 +9,8 @@ mod test;
 use types::{
     BeamSocket,
     BeamStream,
+    NewSocket,
+    NewSocketInterior,
     Socket,
     SocketInterior,
     Stream,
@@ -65,6 +67,9 @@ fn setup_runtime(env: Env, _: Term) -> bool {
     resource!(BeamSocket, env);
     // The Elixir stream interface
     resource!(BeamStream, env);
+    // internal new connection
+    resource!(NewSocket, env);
+    resource!(NewSocketInterior, env);
     // internal connection
     resource!(SocketInterior, env);
     // internal stream

@@ -29,7 +29,7 @@ use tokio::{
 use std::{
     io::{ Write },
     fs::{ File },
-    ops::{ Deref, DerefMut },
+    ops::{ Deref },
     path::PathBuf
 };
 
