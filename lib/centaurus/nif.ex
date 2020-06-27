@@ -5,25 +5,21 @@ defmodule Centaurus.Nif do
 
   defp err(), do: :erlang.nif_error(:nif_not_loaded)
 
+  # Core functions:
   def start(), do: err()
-  
   def accept(_socket, _timeout), do: err()
-
   def connect(_socket_config, _stream_config, _address, _timeout), do: err()
-
   def close(_socket, _error_code, _reason), do: err()
-
   def close_stream(_stream, _error_code), do: err()
-
   def listen(_socket_config, _stream_config), do: err()
-
   def open_stream(_socket, _direction), do: err()
-
   def read(_stream, _amount, _timeout), do: err()
+  def write(_stream, _data), do: err()
 
-  def write(_stream, _data), do: err()    
+  # Logger section:
+  def logger(), do: err()
 
-  # The rest are for testing the translation between Elixir and Rust.
+  # Testing section:
   def create_cert_and_key(_directory, _server_name), do: err()
   def test_socket_config(_socket), do: err()
   def test_stream_config(_stream), do: err()

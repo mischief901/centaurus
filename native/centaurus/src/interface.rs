@@ -4,6 +4,7 @@ pub mod api;
 pub mod certs;
 pub mod config_impl;
 pub mod convert;
+pub mod logger;
 pub mod types;
 mod test;
 use types::{
@@ -16,8 +17,6 @@ use types::{
     Stream,
     StreamInterior,
 };
-
-use super::conn;
 
 use rustler::{ Env, Term };
 
@@ -59,6 +58,7 @@ init!(
         api::start,
         api::read,
         api::write,
+        logger::logger,
     ],
     load = setup_runtime
 );

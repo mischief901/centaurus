@@ -18,7 +18,7 @@ use anyhow::{ Context };
 
 use std::convert::TryInto;
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// start()
 /// Must be called before running any functions.
