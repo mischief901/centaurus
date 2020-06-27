@@ -7,6 +7,8 @@ use crate::interface::types::{ SocketType };
 
 use anyhow::{ Context, Result };
 
+use either::{ Either };
+
 use quinn::{
     EndpointBuilder,
     IncomingBiStreams,
@@ -35,6 +37,7 @@ use std::{
     net::{ SocketAddr },
     sync::{ Arc, Once },
     sync::mpsc::{ Sender },
+    thread::{ JoinHandle },
     time::{ Duration },
 };
 
@@ -147,21 +150,26 @@ impl StreamRuntimeLocal {
     }
 }
 
-pub fn handle() -> Result<AsyncSender<Event>> {
+pub fn handle() -> Result<Either<AsyncSender<Event>, JoinHandle<()>>> {
     static mut SENDER : Option<AsyncSender<Event>> = None;
+    static mut RUNTIME : Option<JoinHandle<()>> = None;
     static INIT : Once = Once::new();
-    let sender = unsafe {
+    let response = unsafe {
         INIT.call_once(|| {
             let (sender, receiver) : (AsyncSender<Event>,
                                       AsyncReceiver<Event>) = unbounded_channel();
             SENDER = Some(sender);
-            std::thread::spawn(move || {
+            RUNTIME = Some(std::thread::spawn(move || {
                 run(receiver);
-            });
+            }));
         });
-        SENDER.as_ref().unwrap().clone()
+        if let Some(runtime) = RUNTIME.take() {
+            Either::Right(runtime)
+        } else {
+            Either::Left(SENDER.as_ref().unwrap().clone())
+        }
     };
-    Ok(sender)
+    Ok(response)
 }
 
 pub enum Event {
@@ -237,25 +245,25 @@ pub fn run(mut pool : AsyncReceiver<Event>) {
 // These actions create a new socket on the runtime.
 async fn run_new_socket(mut socket: NewSocketRuntimeLocal) {
     loop {
-        match socket.receiver.recv().await.unwrap() {
-            NewSocketEvent::Accept(responder, Some(timeout)) => {
+        match socket.receiver.recv().await {
+            Some(NewSocketEvent::Accept(responder, Some(timeout))) => {
                 let result = time::timeout(timeout, accept(&socket))
                     .await
-                    .unwrap_or_else(|error| Err(anyhow::Error::new(error)));
+                    .unwrap_or_else(|_error| Err(anyhow::anyhow!("Accept Timeout.")));
                 responder.into_inner()
                     .send(result)
                     .ok();
             },
-            NewSocketEvent::Accept(responder, None) => {
+            Some(NewSocketEvent::Accept(responder, None)) => {
                 let result = accept(&socket).await;
                 responder.into_inner()
                     .send(result)
                     .ok();
             }
-            NewSocketEvent::Connect(responder, sock_addr, Some(timeout)) => {
+            Some(NewSocketEvent::Connect(responder, sock_addr, Some(timeout))) => {
                 let result = time::timeout(timeout, connect(&mut socket, sock_addr))
                     .await
-                    .unwrap_or_else(|error| Err(anyhow::Error::new(error)));
+                    .unwrap_or_else(|_error| Err(anyhow::anyhow!("Connect Timeout.")));
                 match result {
                     Ok((sender, socket)) => {
                         responder.into_inner()
@@ -271,7 +279,7 @@ async fn run_new_socket(mut socket: NewSocketRuntimeLocal) {
                     }
                 }
             },
-            NewSocketEvent::Connect(responder, sock_addr, None) => {
+            Some(NewSocketEvent::Connect(responder, sock_addr, None)) => {
                 let result = connect(&mut socket, sock_addr).await;
                 match result {
                     Ok((sender, socket)) => {
@@ -288,10 +296,11 @@ async fn run_new_socket(mut socket: NewSocketRuntimeLocal) {
                     }
                 }
             },
-            NewSocketEvent::Close(application_error, reason) => {
+            Some(NewSocketEvent::Close(application_error, reason)) => {
                 close_new(socket, application_error, reason).await.ok();
                 break
             },
+            None => break,
         };
     }
 }

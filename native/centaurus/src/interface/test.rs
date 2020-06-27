@@ -45,12 +45,6 @@ impl Deref for Directory {
         &self.0
     }
 }
-/*
-impl DerefMut for Directory {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-
-    }
-}*/
 
 impl<'a> Decoder<'a> for Directory {
     fn decode(term : Term<'a>) -> std::result::Result<Self, rustler::Error> {
@@ -71,7 +65,7 @@ impl<'a> Encoder for Directory {
 
 #[rustler::nif]
 fn create_cert_and_key(path: Directory, name: Option<String>) -> Result<()> {
-    let name = name.or(Some("localhost".to_string())).unwrap();
+    let name = name.unwrap_or("localhost".to_string());
     let cert = rcgen::generate_simple_self_signed(vec![name]).unwrap();
 
     let cert_pem = cert.serialize_pem()

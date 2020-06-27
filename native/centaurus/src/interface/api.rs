@@ -20,6 +20,13 @@ use std::convert::TryInto;
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// start()
+/// Must be called before running any functions.
+#[rustler::nif]
+fn start() {
+    conn::start_runtime()
+}
+
 /// listen(socket_config, stream_config)
 #[rustler::nif]
 fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<NewSocket> {
@@ -31,16 +38,16 @@ fn listen(socket_config: BeamSocket, stream_config: BeamStream) -> Result<NewSoc
 #[rustler::nif]
 fn connect(socket_config: BeamSocket, stream_config: BeamStream, address: SocketAddr, timeout: Option<u64>) -> Result<Socket> {
     let socket = conn::NewSocket::new(SocketType::Client, socket_config.into(), stream_config.into())?
-        .connect(*address, timeout)
-        .context("Connect Failure.")?;
+        .connect(*address, timeout)?;
+//        .context("Connect Failure.")?;
     Ok(socket.into())
 }
 
 /// accept(socket, timeout)
 #[rustler::nif]
 fn accept(quic_socket: NewSocket, timeout: Option<u64>) -> Result<Socket> {
-    let socket = quic_socket.accept(timeout)
-        .context("Accept Failure.")?
+    let socket = quic_socket.accept(timeout)?
+//        .context("Accept Failure.")?
         .into();
     Ok(socket)
 }

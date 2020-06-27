@@ -4,6 +4,8 @@ defmodule Centaurus.Nif do
   use Rustler, otp_app: :centaurus, crate: :centaurus
 
   defp err(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def start(), do: err()
   
   def accept(_socket, _timeout), do: err()
 

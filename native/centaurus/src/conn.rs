@@ -11,6 +11,8 @@ use crate::runtime::{ Event, NewSocketEvent, SocketEvent, StreamEvent };
 
 use anyhow::{ Context, Result };
 
+use either::{ Either };
+
 use quinn::{
     ClientConfigBuilder,
     Endpoint,
@@ -36,6 +38,13 @@ use std::{
     sync::mpsc::{ channel },
     time::{ Duration },
 };
+
+pub fn start_runtime() {
+    match runtime::handle().unwrap() {
+        Either::Left(_) => (),
+        Either::Right(runtime) => runtime.join().unwrap(),
+    };
+}
 
 pub struct NewSocket(pub AsyncSender<NewSocketEvent>);
 pub struct Socket(pub AsyncSender<SocketEvent>);
@@ -69,8 +78,9 @@ impl NewSocket {
     pub fn new(conn_type: SocketType, socket_config: SocketRef, stream_config: StreamRef) -> Result<Self> {
         let (sender, receiver) = channel();
         let mut endpoint = Endpoint::builder();
-        let socket_handle = runtime::handle()
-            .context("Error getting runtime handle.")?;
+        let socket_handle = runtime::handle()?
+            .left()
+            .ok_or_else(|| anyhow::anyhow!("Runtime not started."))?;
         let state : EndpointBuilder = match conn_type {
             SocketType::Client => {
                 let certs = socket_config.certs()?;

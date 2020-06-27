@@ -12,6 +12,14 @@ defmodule Centaurus.Core do
   alias Types.Options
 
   @doc """
+  Starts the underlying runtime.
+  """
+  @spec start() :: {:ok, pid}
+  def start() do
+    Task.start_link(Centaurus.Nif, :start, [])
+  end
+  
+  @doc """
   Creates a socket configuration from the supplied options.
   """
   @spec socket_config(Options.t) :: {:ok, SocketConfig.t} | {:error, Types.error}
@@ -91,12 +99,10 @@ defmodule Centaurus.Core do
   Valid error codes are:
   none - No error, communication is complete.
   """
-  @spec close_stream(Types.stream, error_code, reason) :: :ok
-  when error_code: Types.error_code,
-    reason: String.t
-  def close_stream(stream, error_code \\ :none, reason \\ "")
-  def close_stream(stream, error_code, reason) do
-    Nif.close_stream(stream, error_code, reason)
+  @spec close_stream(Types.stream, Types.error_code) :: :ok
+  def close_stream(stream, error_code \\ :none)
+  def close_stream(stream, error_code) do
+    Nif.close_stream(stream, error_code)
   end
 
   @doc """

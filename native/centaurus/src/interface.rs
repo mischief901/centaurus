@@ -17,6 +17,8 @@ use types::{
     StreamInterior,
 };
 
+use super::conn;
+
 use rustler::{ Env, Term };
 
 atoms! {
@@ -54,6 +56,7 @@ init!(
         api::close_stream,
         api::listen,
         api::open_stream,
+        api::start,
         api::read,
         api::write,
     ],
@@ -78,7 +81,6 @@ fn setup_runtime(env: Env, _: Term) -> bool {
     resource!(Socket, env);
     // An open stream connection
     resource!(Stream, env);
-    // Initiate the runtime.
     true
 }
 
