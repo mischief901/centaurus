@@ -140,7 +140,18 @@ pub struct StreamRef(pub Arc<BeamStream>);
 pub enum NewSocket {
     Socket(ResourceArc::<NewSocketInterior>),
 }
+#[derive(Debug)]
 pub struct NewSocketInterior(conn::NewSocket);
+
+impl fmt::Debug for NewSocket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NewSocket::Socket(socket) => {
+                socket.fmt(f)
+            }
+        }
+    }
+}
 
 #[derive(NifUntaggedEnum)]
 #[rustler(encode, decode)]
@@ -148,13 +159,37 @@ pub struct NewSocketInterior(conn::NewSocket);
 pub enum Socket {
     Socket(ResourceArc::<SocketInterior>),
 }
+#[derive(Debug)]
 pub struct SocketInterior(conn::Socket);
+
+impl fmt::Debug for Socket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Socket::Socket(socket) => {
+                socket.fmt(f)
+            }
+        }
+    }
+}
 
 #[derive(NifUntaggedEnum)]
 #[rustler(encode, decode)]
 #[derive(Clone)]
-pub enum Stream { Stream(ResourceArc::<StreamInterior>) }
+pub enum Stream {
+    Stream(ResourceArc::<StreamInterior>)
+}
+#[derive(Debug)]
 pub struct StreamInterior(conn::Stream);
+
+impl fmt::Debug for Stream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Stream::Stream(stream) => {
+                stream.fmt(f)
+            }
+        }
+    }
+}
 
 impl Deref for NewSocket {
     type Target = NewSocketInterior;

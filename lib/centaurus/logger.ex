@@ -1,4 +1,4 @@
-defmodule Centaurus.Logger do
+defmodule Centaurus.Log do
   @moduledoc """
   The Logger module provides a way to configure and run a backend logger for the Rust code.
   A separate logger is necessary due to the fairly small buffer used to pass messages between

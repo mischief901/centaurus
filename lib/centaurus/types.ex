@@ -35,7 +35,7 @@ defmodule Centaurus.Types do
   @typedoc """
   Internal types
   """
-  @opaque internal :: any
+  @type internal :: any
   
   @typedoc """
   The error codes Quic uses to close streams and sockets.

@@ -1,5 +1,5 @@
 defmodule InterfaceTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   
   alias Centaurus.Types
   alias Centaurus.Nif
